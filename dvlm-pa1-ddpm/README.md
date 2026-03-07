@@ -1,5 +1,7 @@
 # Learning DDPM on MNIST
 
+Parent repo overview: [../README.md](../README.md)
+
 This repo is not trying to be a polished diffusion framework. It is mostly me working through the original DDPM idea on the smallest setup that still feels honest: MNIST, a compact U-Net, basic sanity checks, and a bunch of saved plots so I can see whether the model is actually learning anything.
 
 The goal here was to understand the mechanics of denoising diffusion probabilistic models instead of hiding behind a huge codebase.
