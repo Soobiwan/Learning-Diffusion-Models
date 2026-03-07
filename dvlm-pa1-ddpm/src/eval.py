@@ -27,6 +27,7 @@ from .diffusion.schedule import DiffusionSchedule, build_schedule
 from .models.classifier import SimpleMNISTClassifier
 from .models.unet import TinyUNet
 from .train import load_ddpm_checkpoint, train_ddpm
+from .utils.seed import set_seed
 from .utils.viz import save_image_grid
 
 EVAL_CLASSIFIER_CKPT = CHECKPOINTS_DIR / "mnist_eval_classifier.pt"
@@ -627,7 +628,7 @@ def run_task6_ablation(
     unet_base_channels: int = MODEL_BASE_CHANNELS,
     elbo_num_batches: int = 3,
     elbo_timestep_stride: int = 100,
-) -> list[dict[str, float | str]]:
+) -> list[dict[str, object]]:
     """
     Task 6 schedule ablation:
     compare linear beta schedule to a cosine alternative with everything else fixed.
@@ -655,7 +656,7 @@ def run_task6_ablation(
     real_train_features, _ = extract_features_and_logits(classifier, real_train)
     real_test_features, _ = extract_features_and_logits(classifier, real_test)
 
-    results: list[dict[str, float | str]] = []
+    results: list[dict[str, object]] = []
     for variant in variants:
         tag = variant["name"]
         schedule_type = str(variant["schedule_type"])
@@ -724,6 +725,7 @@ def run_task6_ablation(
                 "eval_num_samples": float(num_samples),
                 "real_reference_samples": float(metrics_real_samples),
                 "nearest_neighbor_train_pool": float(real_train_nn.shape[0]),
+                "loss_history": losses,
                 **gen_metrics,
                 **simple_metrics,
                 **elbo_stats,
@@ -735,6 +737,7 @@ def run_task6_ablation(
 
 def run_task6_timestep_ablation(
     timestep_values: tuple[int, ...] = (1000, 500),
+    seeds: tuple[int, ...] = (2026,),
     train_steps: int = 250,
     num_samples: int = 128,
     metrics_real_samples: int = 1_024,
@@ -747,10 +750,11 @@ def run_task6_timestep_ablation(
     unet_base_channels: int = MODEL_BASE_CHANNELS,
     elbo_num_batches: int = 2,
     elbo_timestep_stride: int = 100,
-) -> list[dict[str, float | str]]:
+) -> list[dict[str, object]]:
     """
     Task 6 timestep-count ablation:
     compare models trained with different diffusion lengths L (same architecture/hparams).
+    Multiple seeds can be used to reduce single-run noise.
     """
     classifier, clf_ckpt, clf_trained_now = load_or_train_mnist_classifier(
         checkpoint_path=classifier_checkpoint_path,
@@ -770,79 +774,85 @@ def run_task6_timestep_ablation(
     real_train_features, _ = extract_features_and_logits(classifier, real_train)
     real_test_features, _ = extract_features_and_logits(classifier, real_test)
 
-    results: list[dict[str, float | str]] = []
-    for t_steps in timestep_values:
-        t_steps_int = int(t_steps)
-        tag = f"t{t_steps_int}"
+    results: list[dict[str, object]] = []
+    for seed in seeds:
+        set_seed(int(seed))
+        for t_steps in timestep_values:
+            t_steps_int = int(t_steps)
+            tag = f"t{t_steps_int}"
+            run_tag = f"{tag}_seed{int(seed)}"
 
-        model, schedule, losses = train_ddpm(
-            steps=train_steps,
-            timesteps=t_steps_int,
-            unet_variant=unet_variant,
-            unet_time_dim=unet_time_dim,
-            unet_base_channels=unet_base_channels,
-            schedule_type=SCHEDULE_TYPE,
-            beta_start=BETA_START,
-            beta_end=BETA_END,
-            sample_every=0,
-            checkpoint_path=CHECKPOINTS_DIR / f"task6_timestep_{tag}.pt",
-        )
+            model, schedule, losses = train_ddpm(
+                steps=train_steps,
+                timesteps=t_steps_int,
+                unet_variant=unet_variant,
+                unet_time_dim=unet_time_dim,
+                unet_base_channels=unet_base_channels,
+                schedule_type=SCHEDULE_TYPE,
+                beta_start=BETA_START,
+                beta_end=BETA_END,
+                sample_every=0,
+                checkpoint_path=CHECKPOINTS_DIR / f"task6_timestep_{run_tag}.pt",
+            )
 
-        generated = generate_samples(model, schedule, num_samples=num_samples)
-        sample_path = SAMPLES_DIR / f"task6_timestep_{tag}_samples.png"
-        save_image_grid(generated, output_path=sample_path, nrow=8, source_range=(-1.0, 1.0))
+            generated = generate_samples(model, schedule, num_samples=num_samples)
+            sample_path = SAMPLES_DIR / f"task6_timestep_{run_tag}_samples.png"
+            save_image_grid(generated, output_path=sample_path, nrow=8, source_range=(-1.0, 1.0))
 
-        gen_features, gen_logits = extract_features_and_logits(classifier, generated)
-        pseudo_labels = nearest_feature_labels(gen_features, real_train_features, real_train_labels)
-        fid_test = compute_dataset_fid(gen_features, real_test_features)
-        fid_train = compute_dataset_fid(gen_features, real_train_features)
-        kid_test = compute_dataset_kid(gen_features, real_test_features)
-        kid_train = compute_dataset_kid(gen_features, real_train_features)
+            gen_features, gen_logits = extract_features_and_logits(classifier, generated)
+            pseudo_labels = nearest_feature_labels(gen_features, real_train_features, real_train_labels)
+            fid_test = compute_dataset_fid(gen_features, real_test_features)
+            fid_train = compute_dataset_fid(gen_features, real_train_features)
+            kid_test = compute_dataset_kid(gen_features, real_test_features)
+            kid_train = compute_dataset_kid(gen_features, real_train_features)
 
-        nn_path = save_nearest_neighbor_grid(
-            generated,
-            real_train_nn,
-            output_path=FIGURES_DIR / f"task6_timestep_{tag}_nearest_neighbors.png",
-            num_pairs=8,
-        )
+            nn_path = save_nearest_neighbor_grid(
+                generated,
+                real_train_nn,
+                output_path=FIGURES_DIR / f"task6_timestep_{run_tag}_nearest_neighbors.png",
+                num_pairs=8,
+            )
 
-        gen_metrics = compute_classifier_generation_metrics(gen_logits, proxy_labels_gen=pseudo_labels)
-        simple_metrics = compute_simple_metrics(generated, real_test)
-        elbo_stats = estimate_elbo_bpd(
-            model=model,
-            schedule=schedule,
-            num_batches=elbo_num_batches,
-            timestep_stride=elbo_timestep_stride,
-        )
+            gen_metrics = compute_classifier_generation_metrics(gen_logits, proxy_labels_gen=pseudo_labels)
+            simple_metrics = compute_simple_metrics(generated, real_test)
+            elbo_stats = estimate_elbo_bpd(
+                model=model,
+                schedule=schedule,
+                num_batches=elbo_num_batches,
+                timestep_stride=elbo_timestep_stride,
+            )
 
-        results.append(
-            {
-                "name": tag,
-                "timesteps": float(t_steps_int),
-                "schedule_type": SCHEDULE_TYPE,
-                "unet_variant": unet_variant,
-                "unet_time_dim": float(unet_time_dim),
-                "unet_base_channels": float(unet_base_channels),
-                "final_loss": float(losses[-1]),
-                "sample_grid": str(sample_path),
-                "nearest_neighbor_grid": str(nn_path),
-                "classifier_test_accuracy": float(classifier_test_acc),
-                "classifier_feature_extractor_checkpoint": clf_ckpt,
-                "classifier_feature_extractor_retrained_now": float(int(clf_trained_now)),
-                "feature_fid_test": float(fid_test),
-                "feature_fid_train": float(fid_train),
-                "feature_kid_test": float(kid_test),
-                "feature_kid_train": float(kid_train),
-                "feature_fid_train_minus_test": float(fid_train - fid_test),
-                "feature_kid_train_minus_test": float(kid_train - kid_test),
-                "eval_num_samples": float(num_samples),
-                "real_reference_samples": float(metrics_real_samples),
-                "nearest_neighbor_train_pool": float(real_train_nn.shape[0]),
-                **gen_metrics,
-                **simple_metrics,
-                **elbo_stats,
-            }
-        )
+            results.append(
+                {
+                    "name": tag,
+                    "run_name": run_tag,
+                    "run_seed": float(seed),
+                    "timesteps": float(t_steps_int),
+                    "schedule_type": SCHEDULE_TYPE,
+                    "unet_variant": unet_variant,
+                    "unet_time_dim": float(unet_time_dim),
+                    "unet_base_channels": float(unet_base_channels),
+                    "final_loss": float(losses[-1]),
+                    "sample_grid": str(sample_path),
+                    "nearest_neighbor_grid": str(nn_path),
+                    "classifier_test_accuracy": float(classifier_test_acc),
+                    "classifier_feature_extractor_checkpoint": clf_ckpt,
+                    "classifier_feature_extractor_retrained_now": float(int(clf_trained_now)),
+                    "feature_fid_test": float(fid_test),
+                    "feature_fid_train": float(fid_train),
+                    "feature_kid_test": float(kid_test),
+                    "feature_kid_train": float(kid_train),
+                    "feature_fid_train_minus_test": float(fid_train - fid_test),
+                    "feature_kid_train_minus_test": float(kid_train - kid_test),
+                    "eval_num_samples": float(num_samples),
+                    "real_reference_samples": float(metrics_real_samples),
+                    "nearest_neighbor_train_pool": float(real_train_nn.shape[0]),
+                    "loss_history": losses,
+                    **gen_metrics,
+                    **simple_metrics,
+                    **elbo_stats,
+                }
+            )
 
     return results
 
