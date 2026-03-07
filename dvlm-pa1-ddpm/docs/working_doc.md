@@ -138,10 +138,11 @@ By the end, I want:
 - batch visualization.
 
 **Figures**
-- 
+- `outputs/figures/task0_real_grid.png`
 
 **Notes**
-- 
+- Run command: `python -m src.data`
+- Hardcoded to MNIST only, scaled to `[-1, 1]`, then saves `outputs/figures/task0_real_grid.png`.
 
 ---
 
@@ -155,13 +156,16 @@ By the end, I want:
 - schedule plot,
 - `bar(alpha)` plot,
 - SNR plot,
-- noisy image progression.
+- noisy image progression,
+- empirical forward mean/variance check against Eq. (2).
 
 **Figures**
 - 
 
 **Notes**
-- 
+- Implemented in `src/diffusion/schedule.py` and `src/diffusion/forward.py`.
+- Notebook: `notebooks/01_tasks_0_to_2_mnist_basics.ipynb`.
+- Added `forward_moment_sanity_check(...)` for the required empirical verification.
 
 ---
 
@@ -179,7 +183,8 @@ By the end, I want:
 - 
 
 **Notes**
-- 
+- Implemented in `src/diffusion/posterior.py`.
+- Notebook: `notebooks/01_tasks_0_to_2_mnist_basics.ipynb`.
 
 ---
 
@@ -194,7 +199,8 @@ By the end, I want:
 - minimal complexity first.
 
 **Notes**
-- 
+- Implemented minimal time-conditioned U-Net in `src/models/unet.py`.
+- Notebook: `notebooks/02_tasks_3_to_5_train_and_sample.ipynb`.
 
 ---
 
@@ -213,12 +219,22 @@ By the end, I want:
 - overfit tiny subset,
 - loss decreases,
 - epsilon prediction behaves sensibly.
+- gradient norm / parameter norm tracking,
+- timestep histogram sanity.
 
 **Figures**
 - 
 
 **Notes**
-- 
+- Implemented `L_simple` training loop in `src/train.py`.
+- Notebook: `notebooks/02_tasks_3_to_5_train_and_sample.ipynb`.
+- Added: `train_ddpm(..., return_stats=True)` for loss + grad norm + parameter norm + timestep counts.
+- Task-4 checkpoint is saved to `outputs/checkpoints/tiny_unet_mnist.pt` and can be reloaded for checks/sampling.
+- Added overfit test: `train_ddpm_overfit_subset(subset_size=256, ...)`.
+- Added sanity checks in `src/train.py`:
+  - `one_step_posterior_sanity_check`
+  - `noise_prediction_sanity_check`
+  - `timestep_uniformity_sanity_check`
 
 ---
 
@@ -235,40 +251,52 @@ By the end, I want:
 - 
 
 **Notes**
-- 
+- Implemented ancestral sampler in `src/diffusion/ddpm.py` with helpers in `src/eval.py`.
+- Notebook: `notebooks/02_tasks_3_to_5_train_and_sample.ipynb`.
+- Periodic sample grids during training are saved from `src/train.py` (`train_step_*.png` and `overfit256_step_*.png`).
+- Task-5 notebook flow reloads the Task-4 checkpoint, runs sampling, and saves a Task-5 checkpoint (`outputs/checkpoints/tiny_unet_mnist_task5.pt`).
 
 ---
 
-### Task 6 — Diagnostics
-**Goal**
-- produce basic diagnostics
-
-**Expected artifacts**
-- loss curve,
-- sample grid,
-- denoising trajectory,
-- maybe nearest-neighbor check.
-
-**Figures**
-- 
-
-**Notes**
-- 
-
----
-
-### Task 7 — Ablation
+### Task 6 — Focused ablation
 **Chosen ablation**
-- 
+- schedule ablation: linear vs cosine schedule type
 
 **What changes**
-- 
+- baseline: `schedule_type = "linear"`
+- variant: `schedule_type = "cosine"`
+- everything else fixed (model, optimizer, steps, dataset, beta range)
 
 **Result**
-- 
+- generated sample grids are saved for both variants
+- quantitative metrics are logged (feature FID/KID, classifier metrics, simple distribution metrics)
 
 **Interpretation**
-- 
+- this isolates schedule-shape effects without changing network or optimizer.
+- implemented in `src/eval.py` as `run_task6_ablation`.
+
+---
+
+### Task 7 — Evaluation and reporting
+**Goal**
+- produce qualitative artifacts + quantitative quality/diversity/memorization metrics
+
+**Expected artifacts**
+- final sample grid (>= 64),
+- fixed-seed denoising trajectory,
+- nearest-neighbor memorization grid.
+
+**Evaluation coverage**
+- MNIST feature FID/KID
+- classifier quality/diversity metrics
+- train-vs-test FID/KID gap
+- ELBO/NLL-style bpd estimate
+- nearest-neighbor overfit check with a large train-reference pool
+
+**Notes**
+- Implemented in `src/eval.py` as `run_task7_diagnostics` and `run_task7_full_evaluation`.
+- Feature extractor comparability is enforced via a persistent classifier checkpoint.
+- Notebook: `notebooks/03_tasks_6_to_7_diagnostics_and_ablation.ipynb`.
 
 ---
 

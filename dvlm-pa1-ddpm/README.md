@@ -1,64 +1,63 @@
-# Diffusion Models from First Principles
+# Barebones DDPM (MNIST Only)
 
-This repository contains my implementation, notes, and experiments on denoising diffusion probabilistic models (DDPMs).
+This repo is intentionally simplified:
+- fixed dataset: MNIST
+- fixed image scaling: `[-1, 1]`
+- minimal DDPM implementation for Tasks 0 to 7
+- code lives in `src/` and notebooks only call that code
 
-## Goal
-Build a minimum functional DDPM from first principles, understand the theory clearly, and prepare for the viva and written test.
+## Install
 
-## Chosen setup
-- Main image dataset: MNIST
-- Toy dataset: Two Moons
-- Diffusion timesteps: 1000
-- Beta schedule: linear from `1e-4` to `2e-2`
-- Model target: small U-Net with timestep conditioning
+```bash
+pip install -r requirements.txt
+```
 
-## Repository structure
+## Run Task 0
 
-- `notebooks/`  
-  Jupyter notebooks for planning, derivations, sanity checks, training, sampling, and ablations.
+```bash
+python -m src.data
+```
 
-- `src/`  
-  Reusable implementation code for diffusion math, models, data loading, training, and evaluation.
+This checks:
+- shape is `(B, 1, 28, 28)`
+- dtype is `float32`
+- value range is `[-1, 1]`
 
-- `docs/`  
-  Working document, viva prep notes, and saved figures for explanation and reporting.
+and saves:
+- `outputs/figures/task0_real_grid.png`
 
-- `outputs/`  
-  Checkpoints, plots, generated samples, and logs.
+## Run Training (Tasks 3 to 5)
 
-- `data/`  
-  Raw and processed data.
+```bash
+python -m src.train
+```
 
-## Notebook plan
+This trains a stronger time-conditioned U-Net with `L_simple`, saves periodic sample grids, and writes:
+- checkpoint: `outputs/checkpoints/tiny_unet_mnist.pt`
 
-- `00_assignment_plan.ipynb` — overall setup and roadmap
-- `01_analytical_notes.ipynb` — derivations and theory notes
-- `02_data_and_schedule.ipynb` — dataset loading, scaling, schedule plots
-- `03_forward_posterior_checks.ipynb` — forward process and posterior sanity checks
-- `04_model_and_training.ipynb` — epsilon model and training loop
-- `05_sampling_and_ablation.ipynb` — ancestral sampling and one ablation
-- `scratch.ipynb` — temporary experimentation
+## Notebooks
 
-## Source code plan
+Only three notebooks are kept:
+1. `notebooks/01_tasks_0_to_2_mnist_basics.ipynb`
+2. `notebooks/02_tasks_3_to_5_train_and_sample.ipynb`
+3. `notebooks/03_tasks_6_to_7_diagnostics_and_ablation.ipynb`
 
-- `src/diffusion/schedule.py` — beta schedule and precomputed coefficients
-- `src/diffusion/forward.py` — forward noising process
-- `src/diffusion/posterior.py` — posterior formulas and x0 recovery
-- `src/diffusion/ddpm.py` — reverse-step sampling and ancestral sampling
-- `src/models/unet.py` — timestep-conditioned epsilon network
-- `src/train.py` — training loop
-- `src/eval.py` — sampling, plotting, and evaluation helpers
+Notebook 03 includes:
+- Task 7 evaluation/reporting:
+  - fixed-seed denoising trajectory
+  - MNIST feature-space FID/KID
+  - classifier-based quality/diversity metrics
+  - nearest-neighbor memorization grid
+  - train-vs-test gap checks
+  - ELBO/NLL-style bpd estimate
+- Task 6 focused ablation:
+  - schedule ablation (linear vs cosine)
+- toy 2D metric utilities (SWD + RBF-MMD + scatter)
 
-## How I will work
-1. Finish the analytical derivations in rough-but-correct form.
-2. Implement the diffusion math first.
-3. Verify numerical sanity checks before training.
-4. Train a minimal model on MNIST.
-5. Produce sample grids and denoising trajectories.
-6. Prepare concise viva explanations.
+## Source Layout
 
-## Notes
-This repo is organized for speed and clarity:
-- theory is documented in markdown and notebooks,
-- implementation lives in `src/`,
-- notebooks call reusable functions instead of holding all logic inline.
+- `src/data.py` - MNIST loading and Task 0 sanity checks
+- `src/diffusion/` - schedule creation (`make_beta_schedule`), forward process checks, posterior math, and DDPM sampler
+- `src/models/unet.py` - stronger time-conditioned epsilon model
+- `src/train.py` - simple `L_simple` training loop
+- `src/eval.py` - Task 7 evaluation/reporting + Task 6 ablation helpers

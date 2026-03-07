@@ -1,0 +1,1 @@
+"""Barebones MNIST DDPM package."""
