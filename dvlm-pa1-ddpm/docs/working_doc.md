@@ -188,7 +188,7 @@ Things to understand:
 
 ## 9. Schedule ablation
 
-One experiment in notebook 03 compares linear and cosine schedules with a limited training budget.
+Notebook 03 now runs a stronger linear-vs-cosine comparison instead of a very short diagnostic pass. The key improvement is that the notebook now looks at both outcome metrics and the training-loss trajectories, which makes it easier to separate "optimized faster" from "generated better."
 
 Saved outputs:
 
@@ -200,14 +200,25 @@ Nearest-neighbor figures:
 ![Linear nearest neighbors](../outputs/figures/task6_linear_nearest_neighbors.png)
 ![Cosine nearest neighbors](../outputs/figures/task6_cosine_nearest_neighbors.png)
 
-Small-run summary from the notebook:
+What I care about in this section now:
+
+- final sample quality
+- nearest-neighbor behavior
+- feature-space metrics
+- the shape of the loss curves, not just the last loss value
+
+The interesting failure mode here is obvious in diffusion work: a scheduler can look better if you only watch optimization loss, but worse once you inspect samples or downstream metrics.
+
+Notebook 03 now also plots the linear and cosine loss curves directly so the comparison is less hand-wavy.
+
+Earlier notebook summary:
 
 | schedule | final loss | feature FID test | feature KID test | class entropy norm | mean confidence | BPD |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | linear | 0.03457 | 424.85 | 177.70 | 0.9175 | 0.6616 | 38.98 |
 | cosine | 0.05231 | 321.54 | 156.35 | 0.9403 | 0.7240 | 30.91 |
 
-Interesting part: the lower training loss did not correspond to better downstream sample metrics here. On this budget, cosine looked better overall.
+Interesting part: the lower training loss did not correspond to better downstream sample metrics here. That is exactly why the loss-curve plot is useful; it makes it harder to confuse optimization convenience with generation quality.
 
 Things to understand:
 
@@ -217,35 +228,47 @@ Things to understand:
 
 ## 10. Timestep-count ablation
 
-I also compared different diffusion lengths.
+This part is now more robust than before. Instead of one short run per timestep count, notebook 03 now:
+
+- compares `1000`, `750`, `500`, and `250` timesteps
+- repeats the comparison across fixed seeds
+- keeps per-run loss histories
+- reports grouped mean/std for the main metrics
+- overlays the loss trajectories so variance across runs is visible
+
+That is a much better way to read a timestep ablation. Otherwise it is too easy to mistake random training noise for a real trend.
 
 Saved outputs:
 
 ![T1000 samples](../outputs/samples/task6_timestep_t1000_samples.png)
+![T750 samples](../outputs/samples/task6_timestep_t750_seed2026_samples.png)
 ![T500 samples](../outputs/samples/task6_timestep_t500_samples.png)
 ![T250 samples](../outputs/samples/task6_timestep_t250_samples.png)
 
 And the associated nearest-neighbor grids:
 
 ![T1000 nearest neighbors](../outputs/figures/task6_timestep_t1000_nearest_neighbors.png)
+![T750 nearest neighbors](../outputs/figures/task6_timestep_t750_seed2026_nearest_neighbors.png)
 ![T500 nearest neighbors](../outputs/figures/task6_timestep_t500_nearest_neighbors.png)
 ![T250 nearest neighbors](../outputs/figures/task6_timestep_t250_nearest_neighbors.png)
 
-Notebook 03 summary:
+I am deliberately not freezing a new table of numbers into the markdown yet, because the whole point of the updated notebook is that timestep count should now be read as a distribution across repeated runs rather than a single lucky or unlucky result.
 
-| timesteps | final loss | feature FID test | feature KID test | class entropy norm | mean confidence | BPD |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| 1000 | 0.05120 | 579.40 | 215.86 | 0.8716 | 0.6223 | 72.37 |
-| 500 | 0.07743 | 569.95 | 211.03 | 0.9104 | 0.6223 | 83.63 |
-| 250 | 0.10800 | 658.63 | 226.56 | 0.9225 | 0.5435 | 79.84 |
+The main lesson is still the same, but the evidence is better: timestep count interacts with training budget, schedule shape, and model capacity, and the differences should be read through aggregated runs rather than one-off outcomes.
 
-The main lesson for me was not "1000 is best" or "500 is best." It was that timestep count interacts with training budget, schedule shape, and model capacity. Reducing the chain changes both optimization and sampling behavior.
+What the updated notebook should help answer more cleanly:
+
+- Does a shorter chain actually optimize faster, or just differently?
+- Is lower final loss stable across seeds?
+- Which timestep setting has the best average quality, not just the best individual run?
+- How much variance is there between runs at each timestep budget?
 
 Things to understand:
 
 - What changes when you shorten the diffusion chain but keep the rest of the setup fixed?
 - Why is fewer timesteps not automatically better even though sampling becomes cheaper?
 - How do timestep count and schedule type interact?
+- Why is a repeated-seed ablation more trustworthy than a single-run comparison?
 
 ## 11. Toy 2D metrics
 
@@ -262,7 +285,7 @@ This is not central to the MNIST DDPM, but it helped me reason about distributio
 
 ## 12. What I would improve next
 
-- add cleaner experiment logging so the markdown does not rely on notebook output cells for numbers
+- save aggregated timestep-ablation summaries as explicit artifacts instead of relying on notebook state
 - normalize notebook metadata and IDs
 - run stronger ablations with matched compute budgets
 - compare epsilon prediction with `x_0` or `v` prediction

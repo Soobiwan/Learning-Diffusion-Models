@@ -43,6 +43,7 @@ This is the checklist I would want in front of me if someone asked whether I rea
 - Explain why schedule choice changes optimization behavior.
 - Explain how changing the number of timesteps affects both train-time difficulty and sample-time cost.
 - Explain why a shorter chain can hurt quality even when it sounds computationally attractive.
+- Explain why a timestep ablation should usually be repeated across multiple seeds before drawing conclusions.
 
 ## Evaluation and diagnostics
 
@@ -59,6 +60,7 @@ This is the checklist I would want in front of me if someone asked whether I rea
 - Be able to describe what `q_sample` does from memory.
 - Be able to describe the role of `p_mean_from_eps` in evaluation/sampling.
 - Be able to explain what the sanity checks in `src/train.py` are guarding against.
+- Be able to explain why notebook 03 now uses repeated-seed timestep ablations and loss-history plots instead of one-shot comparisons.
 - Be able to explain why notebook 03 mixes qualitative plots with approximate metrics.
 
 ## Bigger picture questions

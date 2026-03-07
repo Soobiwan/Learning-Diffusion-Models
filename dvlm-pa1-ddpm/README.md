@@ -49,7 +49,7 @@ From the notebooks:
 - Whether the posterior step actually moves a noisy sample closer to the clean image.
 - Whether a small time-conditioned U-Net can learn usable noise prediction on MNIST.
 - What the denoising trajectory looks like when sampling from pure noise.
-- How much schedule choice and timestep count matter in a small from-scratch setup.
+- How much schedule choice and timestep count matter once the ablations are given enough budget to be worth looking at.
 - How to inspect memorization risk without pretending MNIST needs a giant benchmark stack.
 
 ## A few artifacts
@@ -81,8 +81,8 @@ Schedule and evaluation artifacts:
 - The early training snapshots are useful because they make it obvious when the model is still generating digit-like blobs instead of digits.
 - The forward-process sanity checks line up well with theory in the notebook outputs, which made the later reverse-process debugging much easier.
 - The saved nearest-neighbor grids are important here. On MNIST it is easy to generate plausible digits, but that is not the same as learning a good data distribution.
-- In the schedule ablation saved in notebook 03, cosine looked better than linear on the small-budget setup I ran here.
-- In the timestep ablation, reducing timesteps too aggressively hurt quality, but the relationship was not perfectly monotonic in every metric because the experiment budget is small and noisy.
+- Notebook 03 now treats the schedule ablation more seriously: stronger training budget plus an explicit linear-vs-cosine loss-curve comparison.
+- The timestep ablation is no longer a single quick run. It now compares `1000`, `750`, `500`, and `250` steps across multiple fixed seeds and summarizes mean/std instead of overreading one trajectory.
 
 ## Repo shape
 
@@ -93,7 +93,7 @@ Schedule and evaluation artifacts:
 - `src/diffusion/ddpm.py`: ancestral DDPM sampler
 - `src/models/unet.py`: small time-conditioned U-Net
 - `src/train.py`: `L_simple` training loop and sanity checks
-- `src/eval.py`: diagnostics, sample grids, nearest neighbors, classifier-based metrics, FID/KID-style feature evaluation, ELBO/BPD estimate, and task ablations
+- `src/eval.py`: diagnostics, sample grids, nearest neighbors, classifier-based metrics, FID/KID-style feature evaluation, ELBO/BPD estimate, schedule-loss tracking, and seed-aware task ablations
 
 ## Read next
 

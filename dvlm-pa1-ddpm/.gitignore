@@ -12,10 +12,10 @@ venv/
 data/raw/
 data/processed/
 
-outputs/checkpoints/
-outputs/logs/
-outputs/samples/
-outputs/figures/
+# outputs/checkpoints/
+# outputs/logs/
+# outputs/samples/
+# outputs/figures/
 
 *.pt
 *.pth

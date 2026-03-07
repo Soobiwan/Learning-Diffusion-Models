@@ -10,6 +10,7 @@ Short version: this repo is a learning log with saved artifacts.
 - `outputs/samples/trajectory.png`: fixed-seed reverse trajectory for debugging the denoising chain.
 - `outputs/figures/task7_loss_curve.png`: rough sense of optimization progress.
 - `outputs/figures/task7_nearest_neighbors.png`: first-stop memorization sanity check.
+- notebook 03 now also plots schedule-ablation loss curves and timestep-ablation mean/std summaries directly inside the notebook.
 
 ## Ablations saved in the repo
 
@@ -18,14 +19,15 @@ Short version: this repo is a learning log with saved artifacts.
   `outputs/samples/task6_cosine_samples.png`
   `outputs/figures/task6_linear_nearest_neighbors.png`
   `outputs/figures/task6_cosine_nearest_neighbors.png`
+  plus an in-notebook loss-curve comparison using the saved `loss_history` from each scheduler run
 
 - Timestep-count comparison:
-  `outputs/samples/task6_timestep_t1000_samples.png`
-  `outputs/samples/task6_timestep_t500_samples.png`
-  `outputs/samples/task6_timestep_t250_samples.png`
-  `outputs/figures/task6_timestep_t1000_nearest_neighbors.png`
-  `outputs/figures/task6_timestep_t500_nearest_neighbors.png`
-  `outputs/figures/task6_timestep_t250_nearest_neighbors.png`
+  repeated across seeds now, with artifacts like:
+  `outputs/samples/task6_timestep_t1000_seed2026_samples.png`
+  `outputs/samples/task6_timestep_t750_seed2026_samples.png`
+  `outputs/samples/task6_timestep_t500_seed2026_samples.png`
+  `outputs/samples/task6_timestep_t250_seed2026_samples.png`
+  and matching nearest-neighbor grids in `outputs/figures/`
 
 ## Numbers I would mention out loud
 
@@ -36,7 +38,8 @@ From the current notebook outputs:
 - noise prediction correlation at `t=200` is about `0.981`
 - Task 7 small-run classifier test accuracy is about `0.974`
 - Task 7 small-run feature FID to test data is about `40.39`
-- the cosine schedule looked better than linear on the small schedule-ablation run in notebook 03
+- the schedule comparison is more useful now because notebook 03 shows both metrics and loss-curve behavior
+- the timestep comparison is more trustworthy now because it aggregates across fixed seeds instead of depending on one run
 
 ## Things I would not overclaim
 
