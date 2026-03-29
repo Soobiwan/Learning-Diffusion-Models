@@ -1,0 +1,4 @@
+name: sft_hh_rlhf
+model: smollm2_135m_lora
+data: hh_rlhf
+method: sft

@@ -1,0 +1,11 @@
+name: sft
+trainer: sft
+objective: sft
+train_batch_size: 1
+eval_batch_size: 1
+learning_rate: 2.0e-4
+max_steps: 10
+gradient_accumulation_steps: 16
+max_prompt_length: 256
+max_response_length: 128
+max_sequence_length: 384

@@ -1,0 +1,6 @@
+adapter: orca_dpo_pairs
+path: Intel/orca_dpo_pairs
+split: train
+eval_split: train
+sample_limit: null
+notes: TODO verify exact dataset identifier and field names before first full run.

@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "alignment-lab"
+version = "0.1.0"
+description = "Modular research-grade alignment framework for small-scale LLM experiments"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+  { name = "Alignment Lab" }
+]
+dependencies = [
+  "accelerate>=0.30.0",
+  "bitsandbytes>=0.43.0",
+  "datasets>=2.19.0",
+  "numpy>=1.26.0",
+  "packaging>=24.0",
+  "peft>=0.11.0",
+  "pyyaml>=6.0.1",
+  "pytest>=8.0.0",
+  "scipy>=1.12.0",
+  "torch>=2.2.0",
+  "transformers>=4.41.0"
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest-cov>=5.0.0"
+]
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"

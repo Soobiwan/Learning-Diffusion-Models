@@ -1,0 +1,15 @@
+name: grpo
+trainer: online_rl
+objective: grpo
+train_batch_size: 1
+learning_rate: 5.0e-5
+max_steps: 5
+gradient_accumulation_steps: 8
+rollout_batch_size: 1
+group_size: 4
+update_minibatch_size: 2
+epochs_per_rollout: 1
+beta_kl: 0.02
+max_prompt_length: 192
+max_response_length: 64
+max_sequence_length: 256

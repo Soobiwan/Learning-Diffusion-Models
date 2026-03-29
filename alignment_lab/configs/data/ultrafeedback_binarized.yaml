@@ -1,0 +1,6 @@
+adapter: ultrafeedback_binarized
+path: HuggingFaceH4/ultrafeedback_binarized
+split: train_prefs
+eval_split: test_prefs
+sample_limit: null
+notes: TODO verify exact field mapping when wiring real dataset download.

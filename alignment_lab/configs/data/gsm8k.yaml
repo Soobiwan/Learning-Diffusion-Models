@@ -1,0 +1,6 @@
+adapter: gsm8k
+path: gsm8k
+name: main
+split: train
+eval_split: test
+sample_limit: null

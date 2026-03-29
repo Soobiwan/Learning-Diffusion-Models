@@ -1,0 +1,11 @@
+name: reward_model
+trainer: rm
+objective: reward_model
+train_batch_size: 1
+eval_batch_size: 1
+learning_rate: 1.0e-4
+max_steps: 10
+gradient_accumulation_steps: 16
+max_sequence_length: 384
+ranking_beta: 1.0
+reward_regularization: 0.0

@@ -1,0 +1,6 @@
+adapter: hh_rlhf
+path: Anthropic/hh-rlhf
+split: train
+eval_split: test
+sample_limit: null
+text_field_map: {}

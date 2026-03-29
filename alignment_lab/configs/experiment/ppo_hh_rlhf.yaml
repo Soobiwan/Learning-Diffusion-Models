@@ -1,0 +1,6 @@
+name: ppo_hh_rlhf
+model: smollm2_135m_lora
+data: hh_rlhf
+method: ppo
+reference_model: smollm2_135m_frozen_4bit
+reward_model: smollm2_135m_frozen_4bit

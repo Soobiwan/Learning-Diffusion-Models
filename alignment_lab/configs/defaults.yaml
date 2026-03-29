@@ -1,0 +1,39 @@
+seed: 42
+output_dir: artifacts/checkpoints
+log_dir: artifacts/logs
+device: auto
+dtype: fp16
+gradient_accumulation_steps: 8
+max_grad_norm: 1.0
+logging:
+  log_every: 1
+  save_every: 100
+  sample_every: 50
+  table_limit: 8
+data:
+  split: train
+  eval_split: test
+  num_proc: 1
+  sample_limit: null
+training:
+  learning_rate: 2.0e-4
+  weight_decay: 0.01
+  warmup_steps: 0
+  train_batch_size: 1
+  eval_batch_size: 1
+  max_steps: 10
+  num_epochs: 1
+  fp16: true
+tokenization:
+  max_prompt_length: 256
+  max_response_length: 128
+  max_sequence_length: 384
+generation:
+  max_new_tokens: 64
+  temperature: 0.8
+  top_p: 0.95
+  do_sample: true
+  group_size: 4
+memory:
+  cpu_rollout_cache: true
+  quantize_frozen_models: true

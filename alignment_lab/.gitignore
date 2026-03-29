@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.coverage
+
+# Virtual environments
+.venv/
+venv/
+
+# Environment files
+.env
+
+# Artifacts
+artifacts/checkpoints/*
+artifacts/logs/*
+artifacts/samples/*
+artifacts/tables/*
+artifacts/plots/*
+!artifacts/checkpoints/.gitkeep
+!artifacts/logs/.gitkeep
+!artifacts/samples/.gitkeep
+!artifacts/tables/.gitkeep
+!artifacts/plots/.gitkeep
+
+# Editor
+.idea/
+.vscode/
