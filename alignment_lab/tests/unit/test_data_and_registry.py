@@ -19,6 +19,24 @@ def test_hh_parser_extracts_shared_prompt_and_responses() -> None:
     assert example.rejected == "Go away"
 
 
+def test_hh_parser_handles_multi_turn_prefix() -> None:
+    adapter = HHRLHFAdapter()
+    raw = {
+        "chosen": (
+            "Human: Hello\n\nAssistant: Hi\n\nHuman: Tell me a joke\n\nAssistant: "
+            "Why did the chicken cross the road?"
+        ),
+        "rejected": (
+            "Human: Hello\n\nAssistant: Hi\n\nHuman: Tell me a joke\n\nAssistant: "
+            "I will not answer that."
+        ),
+    }
+    example = adapter.raw_to_canonical(raw)
+    assert example.prompt.endswith("Human: Tell me a joke\n\nAssistant:")
+    assert "chicken" in example.chosen
+    assert "not answer" in example.rejected
+
+
 def test_prompt_masking_marks_only_response_tokens(tokenizer) -> None:
     features = build_prompt_response_features(
         tokenizer=tokenizer,

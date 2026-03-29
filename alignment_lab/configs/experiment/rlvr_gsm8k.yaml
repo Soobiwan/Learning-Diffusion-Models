@@ -1,5 +1,5 @@
 name: rlvr_gsm8k
-model: smollm2_135m_lora
+model: smollm2_360m_lora
 data: gsm8k
 method: rlvr
-reference_model: smollm2_135m_frozen_4bit
+reference_model: smollm2_360m_frozen_4bit

@@ -17,6 +17,7 @@ class ModelSpec:
     padding_side: str = "right"
     dtype: str = "fp16"
     trust_remote_code: bool = False
+    task_type: str = "CAUSAL_LM"
     use_lora: bool = False
     lora_r: int = 16
     lora_alpha: int = 32

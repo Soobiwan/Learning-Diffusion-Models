@@ -1,0 +1,13 @@
+hf_path: artifacts/checkpoints/rm_hh_rlhf/final
+family: llama
+tokenizer_path: artifacts/checkpoints/rm_hh_rlhf/final
+lora_target_modules: []
+padding_side: right
+dtype: fp16
+trust_remote_code: false
+task_type: SEQ_CLS
+use_lora: false
+lora_r: 0
+lora_alpha: 0
+lora_dropout: 0.0
+quantization: 4bit

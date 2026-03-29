@@ -69,8 +69,12 @@ def test_ppo_one_batch(tokenizer) -> None:
         learning_rate=1.0e-3,
         cpu_rollout_cache=False,
     )
-    metrics = trainer.train_batch(prompt_batch)
+    rollout = trainer.collect_rollouts(prompt_batch)
+    cached_old_logprobs = rollout.old_logprobs.clone()
+    metrics = trainer.update_from_rollout(rollout)
     assert "policy_loss" in metrics
+    assert abs(metrics["ratio_start_mean"] - 1.0) < 1.0e-5
+    assert torch.allclose(rollout.old_logprobs, cached_old_logprobs)
 
 
 def test_grpo_one_batch(tokenizer) -> None:

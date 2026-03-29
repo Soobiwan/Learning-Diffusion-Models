@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from ._shared import (
     build_argument_parser,
     build_online_objective,
@@ -37,14 +39,22 @@ def main() -> None:
 
     value_bundle = None
     if config["method"]["name"].lower() == "ppo":
-        value_bundle = load_value_bundle(model_spec_from_config(config))
+        value_bundle = load_value_bundle(
+            model_spec_from_config(config, "value_model") if "value_model" in config else model_spec_from_config(config)
+        )
 
     if config["method"]["name"].lower() == "rlvr":
         reward_function = VerifiableRewardFunction(GSM8KAnswerVerifier())
     else:
         if "reward_model" not in config:
             raise ValueError("Online RL with learned rewards requires a `reward_model` config section.")
-        reward_bundle = load_reward_bundle(model_spec_from_config(config, "reward_model"))
+        reward_spec = model_spec_from_config(config, "reward_model")
+        reward_path = Path(reward_spec.hf_path)
+        if not reward_path.is_absolute() and reward_path.parts and reward_path.parts[0] == "artifacts" and not reward_path.exists():
+            raise FileNotFoundError(
+                f"Reward-model checkpoint '{reward_spec.hf_path}' was not found. Run train_rm first."
+            )
+        reward_bundle = load_reward_bundle(reward_spec, freeze=True)
         reward_function = LearnedRewardFunction(
             model=reward_bundle.model,
             tokenizer=reward_bundle.tokenizer,

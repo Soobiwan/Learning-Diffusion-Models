@@ -7,7 +7,7 @@ from typing import Any
 
 import torch
 from torch import nn
-from transformers import AutoConfig, AutoModelForCausalLM, PreTrainedTokenizerBase
+from transformers import AutoConfig, AutoModelForCausalLM, BitsAndBytesConfig, PreTrainedTokenizerBase
 
 from .peft_utils import maybe_apply_lora
 from .specs import ModelSpec
@@ -19,6 +19,17 @@ def _hidden_size_from_config(config: Any) -> int:
         if hasattr(config, attribute):
             return int(getattr(config, attribute))
     raise AttributeError("Unable to infer hidden size from model config.")
+
+
+def _quantization_config(mode: str | None) -> BitsAndBytesConfig | None:
+    if mode is None:
+        return None
+    normalized = mode.lower()
+    if normalized == "4bit":
+        return BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_compute_dtype=resolve_torch_dtype("fp16"))
+    if normalized == "8bit":
+        return BitsAndBytesConfig(load_in_8bit=True)
+    raise ValueError(f"Unsupported quantization mode '{mode}'.")
 
 
 class CausalValueModel(nn.Module):
@@ -56,12 +67,18 @@ class ValueModelBundle:
 def load_value_bundle(spec: ModelSpec) -> ValueModelBundle:
     """Load a causal backbone with a scalar token-value head."""
     config = AutoConfig.from_pretrained(spec.hf_path, trust_remote_code=spec.trust_remote_code)
+    model_kwargs: dict[str, Any] = {
+        "trust_remote_code": spec.trust_remote_code,
+        "torch_dtype": resolve_torch_dtype(spec.dtype),
+    }
+    quantization_config = _quantization_config(spec.quantization)
+    if quantization_config is not None:
+        model_kwargs["quantization_config"] = quantization_config
     backbone = AutoModelForCausalLM.from_pretrained(
         spec.hf_path,
-        trust_remote_code=spec.trust_remote_code,
-        torch_dtype=resolve_torch_dtype(spec.dtype),
+        **model_kwargs,
     )
     backbone.config.use_cache = False
-    backbone = maybe_apply_lora(backbone, spec, is_quantized=False)
+    backbone = maybe_apply_lora(backbone, spec, is_quantized=spec.quantization is not None)
     bundle_model = CausalValueModel(backbone=backbone, hidden_size=_hidden_size_from_config(config))
     return ValueModelBundle(model=bundle_model, tokenizer=load_tokenizer(spec), spec=spec)

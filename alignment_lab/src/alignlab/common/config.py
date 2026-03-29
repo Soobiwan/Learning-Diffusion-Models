@@ -45,11 +45,11 @@ def load_experiment_config(path: str | Path) -> dict[str, Any]:
     config = load_yaml(config_root / "defaults.yaml")
     experiment_cfg = load_yaml(experiment_path)
 
-    for section in ("model", "data", "method", "reference_model", "reward_model"):
+    for section in ("model", "data", "method", "reference_model", "reward_model", "value_model"):
         value = experiment_cfg.get(section)
         if value is None:
             continue
-        if section in {"reference_model", "reward_model"} and isinstance(value, str):
+        if section in {"reference_model", "reward_model", "value_model"} and isinstance(value, str):
             resolved = _resolve_named_config(config_root, "model", value)
             config[section] = load_yaml(resolved)
             continue

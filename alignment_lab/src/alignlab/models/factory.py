@@ -56,7 +56,7 @@ def load_reward_model(spec: ModelSpec) -> Any:
     )
     if getattr(model.config, "pad_token_id", None) is None and getattr(model.config, "eos_token_id", None) is not None:
         model.config.pad_token_id = model.config.eos_token_id
-    return model
+    return maybe_apply_lora(model, spec, is_quantized=spec.quantization is not None)
 
 
 def load_reference_model(spec: ModelSpec) -> Any:

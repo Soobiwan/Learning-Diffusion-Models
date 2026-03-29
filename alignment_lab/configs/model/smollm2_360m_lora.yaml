@@ -1,0 +1,20 @@
+hf_path: HuggingFaceTB/SmolLM2-360M-Instruct
+family: smollm
+tokenizer_path: null
+lora_target_modules:
+  - q_proj
+  - k_proj
+  - v_proj
+  - o_proj
+  - gate_proj
+  - up_proj
+  - down_proj
+padding_side: right
+dtype: fp16
+trust_remote_code: false
+task_type: CAUSAL_LM
+use_lora: true
+lora_r: 16
+lora_alpha: 32
+lora_dropout: 0.05
+quantization: 4bit

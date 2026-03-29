@@ -1,5 +1,5 @@
 name: dpo_hh_rlhf
-model: smollm2_135m_lora
+model: smollm2_360m_lora
 data: hh_rlhf
 method: dpo
-reference_model: smollm2_135m_frozen_4bit
+reference_model: smollm2_360m_frozen_4bit

@@ -1,4 +1,4 @@
 name: rm_hh_rlhf
-model: smollm2_135m_lora
+model: llama32_1b_reward
 data: hh_rlhf
 method: reward_model

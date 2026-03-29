@@ -181,6 +181,7 @@ class OnlineRLTrainer(BaseTrainer):
     def update_from_rollout(self, rollout: RolloutBatch) -> dict[str, float]:
         """Run one policy update over a cached rollout batch."""
         aggregate: dict[str, float] = {}
+        first_ratio_mean: float | None = None
         for _ in range(self.epochs_per_rollout):
             for minibatch in rollout.iter_minibatches(self.update_minibatch_size):
                 minibatch = minibatch.to(self.device)
@@ -190,6 +191,9 @@ class OnlineRLTrainer(BaseTrainer):
                     attention_mask=minibatch.attention_mask,
                 )
                 new_logprobs, token_mask = gather_token_logprobs(outputs.logits, minibatch.labels)
+                if first_ratio_mean is None:
+                    ratios = torch.exp(new_logprobs - minibatch.old_logprobs)
+                    first_ratio_mean = float(ratios[token_mask].mean().detach().cpu().item())
                 if isinstance(self.objective, PPOObjective):
                     if self.value_model is None:
                         raise ValueError("PPO requires a value model.")
@@ -222,6 +226,8 @@ class OnlineRLTrainer(BaseTrainer):
 
                 self._backward_and_step(loss_output.loss)
                 aggregate = self.log_output(loss_output.metrics)
+        if first_ratio_mean is not None:
+            aggregate["ratio_start_mean"] = first_ratio_mean
         if rollout.meta is not None and "mean_kl" in rollout.meta:
             aggregate["rollout_mean_kl"] = float(rollout.meta["mean_kl"].detach().cpu().item())
         return aggregate

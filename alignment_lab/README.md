@@ -52,4 +52,7 @@ python -m alignlab.cli.train_online --config configs/experiment/rlvr_gsm8k.yaml 
 - Reward models use `AutoModelForSequenceClassification`.
 - Alignment logic does not depend on TRL, `Trainer`, or prebuilt PPO/DPO trainers.
 - Frozen reference or reward models can be quantized through config when memory is tight.
+- Default policy experiments target `HuggingFaceTB/SmolLM2-360M-Instruct`.
+- Default RM and PPO value backbones target `meta-llama/Llama-3.2-1B-Instruct`.
+- `train_rm` saves a concrete checkpoint under `artifacts/checkpoints/<experiment_name>/final`, and PPO/GRPO configs are wired to consume that RM artifact path.
 - Several method and dataset extensions are scaffolded with specific TODO markers for incremental follow-up.

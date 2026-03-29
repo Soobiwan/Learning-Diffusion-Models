@@ -24,7 +24,7 @@ def build_lora_config(spec: ModelSpec) -> LoraConfig:
         lora_alpha=spec.lora_alpha,
         lora_dropout=spec.lora_dropout,
         bias="none",
-        task_type="CAUSAL_LM",
+        task_type=spec.task_type,
         target_modules=spec.lora_target_modules,
     )
 

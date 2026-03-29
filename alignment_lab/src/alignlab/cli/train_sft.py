@@ -12,6 +12,7 @@ from ._shared import (
     sft_examples,
     summarize_config,
 )
+from ..common.checkpointing import save_pretrained_artifact
 
 
 def main() -> None:
@@ -45,6 +46,8 @@ def main() -> None:
         print(f"step={step} metrics={metrics}")
         if step >= max_steps:
             break
+    save_dir = save_pretrained_artifact(bundle.model, bundle.tokenizer, config, extra_metadata={"task": "sft"})
+    print(f"saved_checkpoint={save_dir}")
 
 
 if __name__ == "__main__":
