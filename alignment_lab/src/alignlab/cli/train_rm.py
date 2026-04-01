@@ -70,20 +70,23 @@ def main() -> None:
     stop_training = False
     for epoch in range(1, num_epochs + 1):
         with tqdm(
-            dataloader,
             total=len(dataloader),
             desc=f"rm epoch {epoch}/{num_epochs}",
             dynamic_ncols=True,
         ) as progress:
-            for batch in progress:
+            for batch in dataloader:
                 with tracker.measure_step():
                     metrics = trainer.train_batch(batch)
                 last_metrics = metrics
-                progress.set_postfix(
-                    optimizer_step=trainer.step,
-                    loss=f"{metrics['loss']:.4f}",
-                    reward_accuracy=f"{metrics['reward_accuracy']:.3f}",
-                )
+                postfix: dict[str, str | int] = {
+                    "optimizer_step": trainer.step,
+                    "loss": f"{metrics['loss']:.4f}",
+                    "reward_accuracy": f"{metrics['reward_accuracy']:.3f}",
+                }
+                if trainer.gradient_accumulation_steps > 1:
+                    postfix["accum"] = trainer.accumulation_status
+                progress.update(1)
+                progress.set_postfix(postfix)
                 if not trainer.last_step_was_optimizer_step:
                     continue
                 record: dict[str, float | int | str] = {"event": "train", "epoch": epoch, "step": trainer.step, **metrics}

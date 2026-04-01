@@ -123,17 +123,17 @@ def main() -> None:
 
     total_rollouts = min(len(dataloader), max_steps)
     with tqdm(
-        dataloader,
         total=total_rollouts,
         desc=f"{config['method']['name']} rollouts",
         dynamic_ncols=True,
     ) as progress:
-        for step, batch in enumerate(progress, start=1):
+        for step, batch in enumerate(dataloader, start=1):
             with tracker.measure_step():
                 metrics = trainer.train_batch(batch)
             record: dict[str, float | int | str] = {"event": "train", "step": step, **metrics}
             append_jsonl(log_path, record)
             train_rows.append(record)
+            progress.update(1)
             progress.set_postfix(
                 step=step,
                 loss=f"{metrics['loss']:.4f}",

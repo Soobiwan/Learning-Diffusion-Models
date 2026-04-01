@@ -57,6 +57,26 @@ class BaseTrainer:
         """Current accelerator device."""
         return self.accelerator.device
 
+    @property
+    def has_pending_gradients(self) -> bool:
+        """Whether gradients are currently accumulated but not stepped."""
+        return self._micro_steps_since_update > 0
+
+    @property
+    def accumulation_progress(self) -> tuple[int, int]:
+        """Human-readable accumulation progress for the most recent micro-step."""
+        if self.last_step_was_optimizer_step:
+            return self.gradient_accumulation_steps, self.gradient_accumulation_steps
+        if self._micro_steps_since_update > 0:
+            return self._micro_steps_since_update, self.gradient_accumulation_steps
+        return 0, self.gradient_accumulation_steps
+
+    @property
+    def accumulation_status(self) -> str:
+        """Formatted accumulation progress like '2/4'."""
+        completed, total = self.accumulation_progress
+        return f"{completed}/{total}"
+
     def move_batch_to_device(self, batch: dict[str, Any]) -> dict[str, Any]:
         """Move tensor values in a batch to the trainer device."""
         moved: dict[str, Any] = {}
