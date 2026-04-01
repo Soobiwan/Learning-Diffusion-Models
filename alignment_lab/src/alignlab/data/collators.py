@@ -75,6 +75,10 @@ def _pad_sequences(sequences: Iterable[list[int]], pad_value: int, left_pad: boo
     return torch.tensor(padded, dtype=torch.long)
 
 
+def _use_left_padding(tokenizer: Any) -> bool:
+    return str(getattr(tokenizer, "padding_side", "right")).lower() == "left"
+
+
 class SFTCollator:
     """Collate `SFTExample` rows with response-only labels."""
 
@@ -93,11 +97,12 @@ class SFTCollator:
             for example in examples
         ]
         pad_token_id = _get_special_id(self.tokenizer, "pad_token_id", "eos_token_id")
+        left_pad = _use_left_padding(self.tokenizer)
         return {
-            "input_ids": _pad_sequences((item["input_ids"] for item in features), pad_token_id),
-            "attention_mask": _pad_sequences((item["attention_mask"] for item in features), 0),
-            "labels": _pad_sequences((item["labels"] for item in features), -100),
-            "response_mask": _pad_sequences((item["response_mask"] for item in features), 0),
+            "input_ids": _pad_sequences((item["input_ids"] for item in features), pad_token_id, left_pad=left_pad),
+            "attention_mask": _pad_sequences((item["attention_mask"] for item in features), 0, left_pad=left_pad),
+            "labels": _pad_sequences((item["labels"] for item in features), -100, left_pad=left_pad),
+            "response_mask": _pad_sequences((item["response_mask"] for item in features), 0, left_pad=left_pad),
         }
 
 
@@ -118,16 +123,19 @@ class RewardModelCollator:
             for item in examples
         ]
         pad_token_id = _get_special_id(self.tokenizer, "pad_token_id", "eos_token_id")
+        left_pad = _use_left_padding(self.tokenizer)
         return {
-            "chosen_input_ids": _pad_sequences((item["input_ids"] for item in chosen_features), pad_token_id),
+            "chosen_input_ids": _pad_sequences(
+                (item["input_ids"] for item in chosen_features), pad_token_id, left_pad=left_pad
+            ),
             "chosen_attention_mask": _pad_sequences(
-                (item["attention_mask"] for item in chosen_features), 0
+                (item["attention_mask"] for item in chosen_features), 0, left_pad=left_pad
             ),
             "rejected_input_ids": _pad_sequences(
-                (item["input_ids"] for item in rejected_features), pad_token_id
+                (item["input_ids"] for item in rejected_features), pad_token_id, left_pad=left_pad
             ),
             "rejected_attention_mask": _pad_sequences(
-                (item["attention_mask"] for item in rejected_features), 0
+                (item["attention_mask"] for item in rejected_features), 0, left_pad=left_pad
             ),
         }
 
@@ -149,24 +157,29 @@ class PreferenceCollator:
             for item in examples
         ]
         pad_token_id = _get_special_id(self.tokenizer, "pad_token_id", "eos_token_id")
+        left_pad = _use_left_padding(self.tokenizer)
         batch = {
-            "chosen_input_ids": _pad_sequences((item["input_ids"] for item in chosen_features), pad_token_id),
-            "chosen_attention_mask": _pad_sequences(
-                (item["attention_mask"] for item in chosen_features), 0
+            "chosen_input_ids": _pad_sequences(
+                (item["input_ids"] for item in chosen_features), pad_token_id, left_pad=left_pad
             ),
-            "chosen_labels": _pad_sequences((item["labels"] for item in chosen_features), -100),
+            "chosen_attention_mask": _pad_sequences(
+                (item["attention_mask"] for item in chosen_features), 0, left_pad=left_pad
+            ),
+            "chosen_labels": _pad_sequences((item["labels"] for item in chosen_features), -100, left_pad=left_pad),
             "chosen_response_mask": _pad_sequences(
-                (item["response_mask"] for item in chosen_features), 0
+                (item["response_mask"] for item in chosen_features), 0, left_pad=left_pad
             ),
             "rejected_input_ids": _pad_sequences(
-                (item["input_ids"] for item in rejected_features), pad_token_id
+                (item["input_ids"] for item in rejected_features), pad_token_id, left_pad=left_pad
             ),
             "rejected_attention_mask": _pad_sequences(
-                (item["attention_mask"] for item in rejected_features), 0
+                (item["attention_mask"] for item in rejected_features), 0, left_pad=left_pad
             ),
-            "rejected_labels": _pad_sequences((item["labels"] for item in rejected_features), -100),
+            "rejected_labels": _pad_sequences(
+                (item["labels"] for item in rejected_features), -100, left_pad=left_pad
+            ),
             "rejected_response_mask": _pad_sequences(
-                (item["response_mask"] for item in rejected_features), 0
+                (item["response_mask"] for item in rejected_features), 0, left_pad=left_pad
             ),
         }
         return batch

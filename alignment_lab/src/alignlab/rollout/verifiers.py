@@ -14,6 +14,9 @@ class GSM8KAnswerVerifier:
     reward_correct: float = 1.0
     reward_incorrect: float = 0.0
 
+    def has_valid_answer(self, response: str) -> bool:
+        return extract_numeric_answer(response) is not None
+
     def verify(self, response: str, gold_answer: str) -> float:
         extracted = extract_numeric_answer(response)
         if extracted is None:

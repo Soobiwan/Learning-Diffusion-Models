@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+from pathlib import Path
+
+from alignlab.cli._shared import resolve_config
 from alignlab.data.adapters.gsm8k import extract_numeric_answer
 from alignlab.data.adapters.hh_rlhf import HHRLHFAdapter
-from alignlab.data.collators import PreferenceCollator, SFTCollator, build_prompt_response_features
+from alignlab.data.collators import PreferenceCollator, PromptOnlyCollator, SFTCollator, build_prompt_response_features
 from alignlab.data.loaders import get_adapter, list_adapters
-from alignlab.data.schemas import PreferenceExample, SFTExample
+from alignlab.data.schemas import PreferenceExample, SFTExample, VerifiableExample
 
 
 def test_hh_parser_extracts_shared_prompt_and_responses() -> None:
@@ -67,6 +70,44 @@ def test_answer_extractor_handles_multiple_formats() -> None:
     assert extract_numeric_answer("The answer is -12.5") == "-12.5"
     assert extract_numeric_answer("We compute... answer: 42") == "42"
     assert extract_numeric_answer("final number is 7 and that's it") == "7"
+
+
+def test_gsm8k_adapter_uses_pa2_prompt_template() -> None:
+    adapter = get_adapter("gsm8k")
+    example = adapter.raw_to_canonical({"question": "What is 6 * 7?", "answer": "#### 42"})
+    assert example.prompt.startswith("Solve the following math problem step by step.")
+    assert "Problem: What is 6 * 7?" in example.prompt
+    assert example.prompt.endswith("Solution:")
+
+
+def test_rlvr_prompt_collator_keeps_solution_suffix_when_left_truncating(tokenizer) -> None:
+    tokenizer.padding_side = "left"
+    prompt = (
+        "Solve the following math problem step by step. At the end, write your final answer as a single number. "
+        "Problem: very long prompt text that should be truncated away from the left side Solution:"
+    )
+    batch = PromptOnlyCollator(tokenizer=tokenizer, max_length=4)(
+        [VerifiableExample(prompt=prompt, gold_answer="42")]
+    )
+    decoded = tokenizer.batch_decode(batch["input_ids"], skip_special_tokens=True)[0]
+    assert "Solution:" in decoded
+
+
+def test_resolve_config_caps_evaluation_budget_for_tiny_runs() -> None:
+    config = resolve_config(
+        str(
+            Path(__file__).resolve().parents[2]
+            / "configs"
+            / "experiment"
+            / "sft_hh_rlhf.yaml"
+        ),
+        sample_limit=16,
+        max_steps=1,
+    )
+    assert config["data"]["sample_limit"] == 16
+    assert config["evaluation"]["num_eval_prompts"] == 16
+    assert config["evaluation"]["num_eval_pairs"] == 16
+    assert config["evaluation"]["sample_table_size"] == 5
 
 
 def test_registry_loading() -> None:

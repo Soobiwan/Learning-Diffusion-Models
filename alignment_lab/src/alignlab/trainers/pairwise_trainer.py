@@ -23,7 +23,7 @@ class PairwiseTrainer(BaseTrainer):
     ) -> None:
         super().__init__(model=model, **kwargs)
         self.objective = objective
-        self.reference_model = reference_model.to(self.device) if reference_model is not None else None
+        self.reference_model = self.prepare_auxiliary_module(reference_model)
         if self.reference_model is not None:
             self.reference_model.eval()
 

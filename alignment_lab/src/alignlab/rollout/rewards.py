@@ -21,6 +21,10 @@ class RewardFunction(ABC):
     ) -> torch.Tensor:
         """Return one scalar reward per prompt-response pair."""
 
+    def format_compliance_batch(self, responses: Sequence[str]) -> torch.Tensor | None:
+        """Optionally measure response format compliance."""
+        return None
+
 
 class LearnedRewardFunction(RewardFunction):
     """Reward function backed by a sequence classification model."""
@@ -72,3 +76,7 @@ class VerifiableRewardFunction(RewardFunction):
             for response, target in zip(responses, targets)
         ]
         return torch.tensor(rewards, dtype=torch.float32)
+
+    def format_compliance_batch(self, responses: Sequence[str]) -> torch.Tensor | None:
+        values = [1.0 if self.verifier.has_valid_answer(response) else 0.0 for response in responses]
+        return torch.tensor(values, dtype=torch.float32)

@@ -11,7 +11,7 @@ from transformers import PreTrainedTokenizerBase
 
 from .factory import load_reward_model
 from .specs import ModelSpec
-from .tokenizer_utils import load_tokenizer
+from .tokenizer_utils import load_tokenizer, normalize_model_config_special_ids
 
 
 @dataclass(slots=True)
@@ -40,11 +40,13 @@ def last_non_pad_indices(attention_mask: torch.Tensor) -> torch.Tensor:
 
 def load_reward_bundle(spec: ModelSpec, freeze: bool = False) -> RewardModelBundle:
     """Load reward model plus tokenizer."""
-    model = load_reward_model(spec)
+    tokenizer = load_tokenizer(spec)
+    model = load_reward_model(spec, tokenizer=tokenizer)
+    normalize_model_config_special_ids(model.config, tokenizer=tokenizer)
     if freeze:
         model = freeze_module(model)
     return RewardModelBundle(
         model=model,
-        tokenizer=load_tokenizer(spec),
+        tokenizer=tokenizer,
         spec=spec,
     )

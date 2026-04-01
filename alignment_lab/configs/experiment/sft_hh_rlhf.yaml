@@ -2,3 +2,4 @@ name: sft_hh_rlhf
 model: smollm2_360m_lora
 data: hh_rlhf
 method: sft
+reward_model: rm_hh_rlhf_checkpoint

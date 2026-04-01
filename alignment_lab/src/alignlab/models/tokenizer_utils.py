@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
-from typing import Iterator
+from typing import Any, Iterator
 
 import torch
 from transformers import AutoTokenizer, PreTrainedTokenizerBase
@@ -26,6 +26,57 @@ def resolve_torch_dtype(dtype_name: str) -> torch.dtype:
     return mapping[normalized]
 
 
+def normalize_special_token_id(token_id: Any) -> int | None:
+    """Convert tokenizer/config special token ids into a scalar int when possible."""
+    if token_id is None:
+        return None
+    if isinstance(token_id, (list, tuple)):
+        if not token_id:
+            return None
+        token_id = token_id[0]
+    return int(token_id)
+
+
+def normalize_model_config_special_ids(config: Any, tokenizer: PreTrainedTokenizerBase | None = None) -> Any:
+    """Ensure model config pad/eos token ids are scalar integers."""
+    eos_token_id = normalize_special_token_id(getattr(config, "eos_token_id", None))
+    pad_token_id = normalize_special_token_id(getattr(config, "pad_token_id", None))
+
+    tokenizer_eos_token_id = None
+    tokenizer_pad_token_id = None
+    if tokenizer is not None:
+        tokenizer_eos_token_id = normalize_special_token_id(getattr(tokenizer, "eos_token_id", None))
+        tokenizer_pad_token_id = normalize_special_token_id(getattr(tokenizer, "pad_token_id", None))
+
+    if eos_token_id is None:
+        eos_token_id = tokenizer_eos_token_id
+    if pad_token_id is None:
+        pad_token_id = tokenizer_pad_token_id if tokenizer_pad_token_id is not None else eos_token_id
+
+    if eos_token_id is not None:
+        config.eos_token_id = eos_token_id
+    if pad_token_id is not None:
+        config.pad_token_id = pad_token_id
+    return config
+
+
+def normalize_tokenizer_special_ids(tokenizer: PreTrainedTokenizerBase) -> PreTrainedTokenizerBase:
+    """Ensure tokenizer pad/eos token ids are scalar integers and internally consistent."""
+    eos_token_id = normalize_special_token_id(getattr(tokenizer, "eos_token_id", None))
+    pad_token_id = normalize_special_token_id(getattr(tokenizer, "pad_token_id", None))
+
+    if eos_token_id is not None:
+        tokenizer.eos_token_id = eos_token_id
+    if tokenizer.pad_token is None and tokenizer.eos_token is not None:
+        tokenizer.pad_token = tokenizer.eos_token
+        pad_token_id = eos_token_id
+    if pad_token_id is None:
+        pad_token_id = eos_token_id
+    if pad_token_id is not None:
+        tokenizer.pad_token_id = pad_token_id
+    return tokenizer
+
+
 def load_tokenizer(spec: ModelSpec) -> PreTrainedTokenizerBase:
     """Load and configure the tokenizer for a model spec."""
     tokenizer = AutoTokenizer.from_pretrained(
@@ -33,9 +84,7 @@ def load_tokenizer(spec: ModelSpec) -> PreTrainedTokenizerBase:
         trust_remote_code=spec.trust_remote_code,
         padding_side=spec.padding_side,
     )
-    if tokenizer.pad_token is None and tokenizer.eos_token is not None:
-        tokenizer.pad_token = tokenizer.eos_token
-        tokenizer.pad_token_id = tokenizer.eos_token_id
+    tokenizer = normalize_tokenizer_special_ids(tokenizer)
     tokenizer.padding_side = spec.padding_side
     return tokenizer
 

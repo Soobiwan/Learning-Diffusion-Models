@@ -7,6 +7,7 @@ from typing import Any
 
 from ..base import AdapterRegistry, DatasetAdapter
 from ..schemas import VerifiableExample
+from ...prompts.formatting import format_gsm8k_prompt
 
 _NUMBER_PATTERN = re.compile(r"[-+]?\d[\d,]*(?:\.\d+)?")
 _ANSWER_PHRASE_PATTERN = re.compile(
@@ -49,7 +50,7 @@ class GSM8KAdapter(DatasetAdapter):
         if gold_answer is None:
             raise ValueError("Could not extract a numeric GSM8K answer from the raw row.")
         return VerifiableExample(
-            prompt=str(raw_example["question"]).strip(),
+            prompt=format_gsm8k_prompt(str(raw_example["question"]).strip()),
             gold_answer=gold_answer,
             meta={"source": self.name, "answer_text": answer_text},
         )

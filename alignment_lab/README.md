@@ -29,13 +29,22 @@ The repository is intentionally structured so that:
 ## Quick start
 
 ```bash
-python -m venv .venv
-. .venv/Scripts/activate
-pip install -r requirements.txt
+/usr/bin/python3.11 -m venv .venv
+. .venv/bin/activate
+cp .env.example .env
+mkdir -p .hf_cache/datasets .hf_cache/transformers
+python -m pip install --upgrade pip setuptools wheel
+pip install --extra-index-url https://download.pytorch.org/whl/cu124 -r requirements.txt
 pip install -e .
 python scripts/check_imports.py
 pytest tests/unit -q
 ```
+
+The repository currently runs best with Python 3.11 on Linux. The default system `python3`
+on some machines may be too new for the PyTorch stack used here.
+
+If you are setting this up on a CPU-only machine, use `pip install -r requirements.txt`
+instead of the CUDA wheel index above.
 
 ## Example commands
 

@@ -27,6 +27,22 @@ def test_sft_one_batch(tokenizer) -> None:
     assert metrics["loss"] >= 0.0
 
 
+def test_gradient_accumulation_steps_only_on_boundary(tokenizer) -> None:
+    collator = SFTCollator(tokenizer=tokenizer, max_length=8)
+    batch = collator([SFTExample(prompt="Human: hello Assistant:", response="good")])
+    trainer = SFTTrainer(
+        model=DummyCausalLM(vocab_size=tokenizer.vocab_size + 8),
+        learning_rate=1.0e-3,
+        gradient_accumulation_steps=2,
+    )
+    trainer.train_batch(batch)
+    assert trainer.step == 0
+    assert trainer.last_step_was_optimizer_step is False
+    trainer.train_batch(batch)
+    assert trainer.step == 1
+    assert trainer.last_step_was_optimizer_step is True
+
+
 def test_rm_one_batch(tokenizer) -> None:
     collator = RewardModelCollator(tokenizer=tokenizer, max_length=8)
     batch = collator([PreferenceExample(prompt="Human: hello Assistant:", chosen="good", rejected="bad")])
@@ -96,6 +112,8 @@ def test_grpo_one_batch(tokenizer) -> None:
     )
     metrics = trainer.train_batch(prompt_batch)
     assert "degenerate_fraction" in metrics
+    assert "clipped_fraction" in metrics
+    assert abs(metrics["ratio_start_mean"] - 1.0) < 1.0e-5
 
 
 def test_rlvr_one_batch(tokenizer) -> None:
@@ -117,3 +135,4 @@ def test_rlvr_one_batch(tokenizer) -> None:
     )
     metrics = trainer.train_batch(prompt_batch)
     assert "loss" in metrics
+    assert "format_compliance_rate" in metrics

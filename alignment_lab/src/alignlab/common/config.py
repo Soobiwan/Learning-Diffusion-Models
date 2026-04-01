@@ -45,7 +45,7 @@ def load_experiment_config(path: str | Path) -> dict[str, Any]:
     config = load_yaml(config_root / "defaults.yaml")
     experiment_cfg = load_yaml(experiment_path)
 
-    for section in ("model", "data", "method", "reference_model", "reward_model", "value_model"):
+    for section in ("model", "data", "method", "reference_model", "reward_model", "value_model", "evaluation"):
         value = experiment_cfg.get(section)
         if value is None:
             continue

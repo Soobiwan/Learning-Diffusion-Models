@@ -8,7 +8,9 @@ from alignlab.eval.kl_eval import estimate_policy_reference_kl
 from alignlab.eval.preference_eval import preference_accuracy_from_logprobs
 from alignlab.eval.rm_eval import reward_model_win_rate_vs_sft
 from alignlab.models.reward import last_non_pad_indices
+from alignlab.models.value import CausalValueModel
 from alignlab.rollout.verifiers import GSM8KAnswerVerifier
+from tests.helpers import DummyCausalLM
 
 
 def test_last_non_pad_indices() -> None:
@@ -43,3 +45,9 @@ def test_kl_and_generation_table_helpers() -> None:
 def test_gsm8k_pass_at_1() -> None:
     value = gsm8k_pass_at_1(["The answer is 42", "I think 7"], ["42", "8"], GSM8KAnswerVerifier())
     assert abs(value - 0.5) < 1.0e-6
+
+
+def test_value_head_uses_small_initialization() -> None:
+    model = CausalValueModel(backbone=DummyCausalLM(hidden_size=16), hidden_size=16)
+    assert float(model.value_head.weight.std().item()) < 0.05
+    assert torch.allclose(model.value_head.bias, torch.zeros_like(model.value_head.bias))

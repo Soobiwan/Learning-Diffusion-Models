@@ -1,0 +1,13 @@
+hf_path: artifacts/checkpoints/sft_hh_rlhf/final
+family: smollm
+tokenizer_path: artifacts/checkpoints/sft_hh_rlhf/final
+lora_target_modules: []
+padding_side: left
+dtype: fp16
+trust_remote_code: false
+task_type: CAUSAL_LM
+use_lora: false
+lora_r: 0
+lora_alpha: 0
+lora_dropout: 0.0
+quantization: 4bit

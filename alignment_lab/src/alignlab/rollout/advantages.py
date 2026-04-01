@@ -5,19 +5,33 @@ from __future__ import annotations
 import torch
 
 
-def normalize_advantages(advantages: torch.Tensor, eps: float = 1.0e-8) -> torch.Tensor:
+def normalize_advantages(
+    advantages: torch.Tensor,
+    mask: torch.Tensor | None = None,
+    eps: float = 1.0e-8,
+) -> torch.Tensor:
     """Normalize advantages across all valid elements."""
-    mean = advantages.mean()
-    std = advantages.std(unbiased=False).clamp_min(eps)
-    return (advantages - mean) / std
+    if mask is None:
+        mean = advantages.mean()
+        std = advantages.std(unbiased=False).clamp_min(eps)
+        return (advantages - mean) / std
+
+    valid = mask.to(torch.bool)
+    if not torch.any(valid):
+        return torch.zeros_like(advantages)
+    valid_advantages = advantages[valid]
+    mean = valid_advantages.mean()
+    std = valid_advantages.std(unbiased=False).clamp_min(eps)
+    normalized = torch.zeros_like(advantages)
+    normalized[valid] = (valid_advantages - mean) / std
+    return normalized
 
 
 def group_relative_advantages(
     rewards: torch.Tensor,
     group_size: int,
-    eps: float = 1.0e-8,
 ) -> tuple[torch.Tensor, torch.Tensor]:
-    """Compute group-relative normalized advantages from scalar rewards.
+    """Compute group-relative centered advantages from scalar rewards.
 
     Expects rewards shaped as `[num_groups * group_size]`.
     """
@@ -26,7 +40,7 @@ def group_relative_advantages(
     grouped = rewards.view(-1, group_size)
     group_mean = grouped.mean(dim=-1, keepdim=True)
     group_std = grouped.std(dim=-1, unbiased=False, keepdim=True)
-    advantages = (grouped - group_mean) / group_std.clamp_min(eps)
+    advantages = grouped - group_mean
     return advantages.view(-1), group_std.squeeze(-1)
 
 

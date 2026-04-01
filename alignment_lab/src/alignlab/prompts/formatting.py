@@ -3,6 +3,16 @@
 from __future__ import annotations
 
 
+def format_gsm8k_prompt(question: str) -> str:
+    """Format a GSM8K problem as the PA2 RLVR prompt template."""
+    return (
+        "Solve the following math problem step by step.\n"
+        "At the end, write your final answer as a single number.\n\n"
+        f"Problem: {question.strip()}\n"
+        "Solution:"
+    )
+
+
 def format_prompt(family: str, prompt: str) -> str:
     """Apply family-specific prompt normalization."""
     normalized = prompt.strip()

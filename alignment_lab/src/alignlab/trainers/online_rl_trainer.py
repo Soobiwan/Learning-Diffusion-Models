@@ -9,7 +9,7 @@ from torch.optim import AdamW
 
 from ..objectives.base import Objective
 from ..objectives.ppo import PPOObjective
-from ..rollout.advantages import broadcast_sequence_advantages, group_relative_advantages
+from ..rollout.advantages import broadcast_sequence_advantages, group_relative_advantages, normalize_advantages
 from ..rollout.buffers import RolloutBatch
 from ..rollout.gae import compute_gae
 from ..rollout.generation import generate_rollout_batch, repeat_prompt_batch
@@ -59,8 +59,8 @@ class OnlineRLTrainer(BaseTrainer):
         self.objective = objective
         self.reward_function = reward_function
         self.tokenizer = tokenizer
-        self.reference_model = reference_model.to(self.device) if reference_model is not None else None
-        self.value_model = value_model.to(self.device) if value_model is not None else None
+        self.reference_model = self.prepare_auxiliary_module(reference_model)
+        self.value_model = self.prepare_auxiliary_module(value_model)
         self.generation_config = generation_config or {}
         self.gamma = gamma
         self.gae_lambda = gae_lambda
@@ -128,6 +128,9 @@ class OnlineRLTrainer(BaseTrainer):
             targets=targets,
             meta=raw_examples,
         ).to(self.device, dtype=old_logprobs.dtype)
+        format_compliance = self.reward_function.format_compliance_batch(generated["responses"])
+        if format_compliance is not None:
+            format_compliance = format_compliance.to(self.device, dtype=old_logprobs.dtype)
 
         token_rewards = torch.zeros_like(old_logprobs)
         dones = torch.zeros_like(old_logprobs)
@@ -153,10 +156,12 @@ class OnlineRLTrainer(BaseTrainer):
                 gamma=self.gamma,
                 gae_lambda=self.gae_lambda,
             )
+            advantages = normalize_advantages(advantages, token_mask)
         else:
             sequence_advantages, _ = group_relative_advantages(rewards, self.group_size)
             sequence_advantages = sequence_advantages.to(self.device)
             advantages = broadcast_sequence_advantages(sequence_advantages, token_mask)
+            advantages = normalize_advantages(advantages, token_mask)
             returns = advantages.clone()
 
         rollout = RolloutBatch(
@@ -174,7 +179,13 @@ class OnlineRLTrainer(BaseTrainer):
             sequence_advantages=sequence_advantages,
             prompts=prompts,
             responses=generated["responses"],
-            meta={"raw_examples": raw_examples, "mean_kl": mean_kl(old_logprobs, ref_logprobs, token_mask)},
+            meta={
+                "raw_examples": raw_examples,
+                "mean_kl": mean_kl(old_logprobs, ref_logprobs, token_mask),
+                "mean_reward": rewards.mean(),
+                "mean_response_length": response_lengths.to(old_logprobs.dtype).mean(),
+                "format_compliance_rate": format_compliance.mean() if format_compliance is not None else None,
+            },
         )
         return rollout.cpu() if self.cpu_rollout_cache else rollout
 
@@ -215,7 +226,8 @@ class OnlineRLTrainer(BaseTrainer):
                     if minibatch.ref_logprobs is not None:
                         kl_values = per_token_kl(new_logprobs, minibatch.ref_logprobs, token_mask)
                     loss_output = self.objective.compute(
-                        token_logprobs=new_logprobs,
+                        new_logprobs=new_logprobs,
+                        old_logprobs=minibatch.old_logprobs,
                         advantages=minibatch.advantages,
                         mask=token_mask,
                         kl_values=kl_values,
@@ -226,10 +238,16 @@ class OnlineRLTrainer(BaseTrainer):
 
                 self._backward_and_step(loss_output.loss)
                 aggregate = self.log_output(loss_output.metrics)
+        self.flush()
         if first_ratio_mean is not None:
             aggregate["ratio_start_mean"] = first_ratio_mean
         if rollout.meta is not None and "mean_kl" in rollout.meta:
             aggregate["rollout_mean_kl"] = float(rollout.meta["mean_kl"].detach().cpu().item())
+            aggregate["mean_reward"] = float(rollout.meta["mean_reward"].detach().cpu().item())
+            aggregate["mean_response_length"] = float(rollout.meta["mean_response_length"].detach().cpu().item())
+            format_compliance = rollout.meta.get("format_compliance_rate")
+            if format_compliance is not None:
+                aggregate["format_compliance_rate"] = float(format_compliance.detach().cpu().item())
         return aggregate
 
     def train_batch(self, prompt_batch: dict[str, Any]) -> dict[str, float]:

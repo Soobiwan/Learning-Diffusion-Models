@@ -37,6 +37,7 @@ class BaseTrainer:
         max_grad_norm: float = 1.0,
         mixed_precision: str = "no",
         optimizer: torch.optim.Optimizer | None = None,
+        gradient_accumulation_steps: int = 1,
     ) -> None:
         mp_mode = mixed_precision if (mixed_precision != "fp16" or torch.cuda.is_available()) else "no"
         self.accelerator = Accelerator(mixed_precision=mp_mode)
@@ -44,8 +45,12 @@ class BaseTrainer:
         self.trainable_parameters: list[torch.nn.Parameter] = list(self.model.parameters())
         self.optimizer = optimizer or AdamW(self.trainable_parameters, lr=learning_rate, weight_decay=weight_decay)
         self.max_grad_norm = max_grad_norm
+        self.gradient_accumulation_steps = max(int(gradient_accumulation_steps), 1)
         self.logger = get_logger(self.__class__.__name__)
         self.step = 0
+        self.last_step_was_optimizer_step = False
+        self._micro_steps_since_update = 0
+        self.optimizer.zero_grad(set_to_none=True)
 
     @property
     def device(self) -> torch.device:
@@ -62,19 +67,65 @@ class BaseTrainer:
                 moved[key] = value
         return moved
 
+    def prepare_auxiliary_module(self, module: Any) -> Any:
+        """Place non-primary models on the trainer device when safe.
+
+        Quantized bitsandbytes modules are already device-dispatched by
+        transformers/accelerate and must not be moved with `.to(...)`.
+        """
+        if module is None:
+            return None
+
+        candidates = [module]
+        for attribute in ("backbone", "model", "base_model", "policy_model"):
+            child = getattr(module, attribute, None)
+            if child is not None:
+                candidates.append(child)
+
+        manages_own_device = any(
+            getattr(candidate, "is_loaded_in_4bit", False)
+            or getattr(candidate, "is_loaded_in_8bit", False)
+            or getattr(candidate, "hf_device_map", None) is not None
+            for candidate in candidates
+        )
+        if manages_own_device:
+            align_helper = getattr(module, "move_auxiliary_modules_to_backbone_device", None)
+            if callable(align_helper):
+                align_helper()
+            return module
+        return module.to(self.device)
+
     def _set_trainable_parameters(self, parameters: Iterable[torch.nn.Parameter]) -> None:
         """Update the parameter list used for gradient clipping and optimization."""
         self.trainable_parameters = list(parameters)
         if not self.trainable_parameters:
             raise ValueError("Trainer received an empty parameter list.")
 
-    def _backward_and_step(self, loss: torch.Tensor) -> None:
-        self.optimizer.zero_grad(set_to_none=True)
-        self.accelerator.backward(loss)
+    def _optimizer_step(self) -> None:
         if self.max_grad_norm is not None:
             self.accelerator.clip_grad_norm_(self.trainable_parameters, self.max_grad_norm)
         self.optimizer.step()
+        self.optimizer.zero_grad(set_to_none=True)
         self.step += 1
+        self._micro_steps_since_update = 0
+        self.last_step_was_optimizer_step = True
+
+    def _backward_and_step(self, loss: torch.Tensor) -> bool:
+        self.last_step_was_optimizer_step = False
+        scaled_loss = loss / float(self.gradient_accumulation_steps)
+        self.accelerator.backward(scaled_loss)
+        self._micro_steps_since_update += 1
+        if self._micro_steps_since_update >= self.gradient_accumulation_steps:
+            self._optimizer_step()
+        return self.last_step_was_optimizer_step
+
+    def flush(self) -> bool:
+        """Apply any partially accumulated gradients."""
+        self.last_step_was_optimizer_step = False
+        if self._micro_steps_since_update <= 0:
+            return False
+        self._optimizer_step()
+        return True
 
     def log_output(self, metrics: dict[str, Any]) -> dict[str, float]:
         """Convert scalar metrics to plain floats."""

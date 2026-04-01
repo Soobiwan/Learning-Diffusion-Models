@@ -27,13 +27,19 @@ training:
 tokenization:
   max_prompt_length: 256
   max_response_length: 128
-  max_sequence_length: 384
+  max_sequence_length: 1024
 generation:
-  max_new_tokens: 64
+  max_new_tokens: 128
   temperature: 0.8
   top_p: 0.95
   do_sample: true
   group_size: 4
+evaluation:
+  eval_every_steps: 25
+  num_eval_prompts: 200
+  num_eval_pairs: 200
+  sample_table_size: 5
+  histogram_bins: 20
 memory:
   cpu_rollout_cache: true
   quantize_frozen_models: true

@@ -9,9 +9,9 @@ import torch
 from torch import nn
 from transformers import AutoConfig, AutoModelForCausalLM, BitsAndBytesConfig, PreTrainedTokenizerBase
 
-from .peft_utils import maybe_apply_lora
+from .peft_utils import enable_gradient_checkpointing, enable_input_require_grads, maybe_apply_lora
 from .specs import ModelSpec
-from .tokenizer_utils import load_tokenizer, resolve_torch_dtype
+from .tokenizer_utils import load_tokenizer, normalize_model_config_special_ids, resolve_torch_dtype
 
 
 def _hidden_size_from_config(config: Any) -> int:
@@ -39,6 +39,14 @@ class CausalValueModel(nn.Module):
         super().__init__()
         self.backbone = backbone
         self.value_head = nn.Linear(hidden_size, 1)
+        nn.init.normal_(self.value_head.weight, std=0.01)
+        nn.init.zeros_(self.value_head.bias)
+
+    def move_auxiliary_modules_to_backbone_device(self) -> "CausalValueModel":
+        """Align the trainable value head with a quantized backbone device."""
+        device = next(self.backbone.parameters()).device
+        self.value_head.to(device)
+        return self
 
     def forward(
         self,
@@ -67,6 +75,7 @@ class ValueModelBundle:
 def load_value_bundle(spec: ModelSpec) -> ValueModelBundle:
     """Load a causal backbone with a scalar token-value head."""
     config = AutoConfig.from_pretrained(spec.hf_path, trust_remote_code=spec.trust_remote_code)
+    normalize_model_config_special_ids(config)
     model_kwargs: dict[str, Any] = {
         "trust_remote_code": spec.trust_remote_code,
         "torch_dtype": resolve_torch_dtype(spec.dtype),
@@ -78,7 +87,9 @@ def load_value_bundle(spec: ModelSpec) -> ValueModelBundle:
         spec.hf_path,
         **model_kwargs,
     )
-    backbone.config.use_cache = False
+    normalize_model_config_special_ids(backbone.config)
+    enable_gradient_checkpointing(backbone)
     backbone = maybe_apply_lora(backbone, spec, is_quantized=spec.quantization is not None)
+    enable_input_require_grads(backbone)
     bundle_model = CausalValueModel(backbone=backbone, hidden_size=_hidden_size_from_config(config))
     return ValueModelBundle(model=bundle_model, tokenizer=load_tokenizer(spec), spec=spec)

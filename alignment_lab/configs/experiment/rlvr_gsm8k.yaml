@@ -1,5 +1,8 @@
 name: rlvr_gsm8k
-model: smollm2_360m_lora
+model: sft_hh_rlhf_policy_checkpoint
 data: gsm8k
 method: rlvr
-reference_model: smollm2_360m_frozen_4bit
+reference_model: sft_hh_rlhf_reference_checkpoint
+overrides:
+  generation:
+    max_new_tokens: 256

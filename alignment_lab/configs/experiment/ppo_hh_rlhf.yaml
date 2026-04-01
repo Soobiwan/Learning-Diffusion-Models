@@ -1,7 +1,7 @@
 name: ppo_hh_rlhf
-model: smollm2_360m_lora
+model: sft_hh_rlhf_policy_checkpoint
 data: hh_rlhf
 method: ppo
-reference_model: smollm2_360m_frozen_4bit
+reference_model: sft_hh_rlhf_reference_checkpoint
 reward_model: rm_hh_rlhf_checkpoint
 value_model: llama32_1b_value
