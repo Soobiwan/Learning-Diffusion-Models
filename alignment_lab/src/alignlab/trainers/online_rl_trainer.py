@@ -148,6 +148,7 @@ class OnlineRLTrainer(BaseTrainer):
         sequence_advantages = None
         advantages = None
         returns = None
+        nonzero_advantage_token_fraction = torch.tensor(0.0, device=self.device, dtype=old_logprobs.dtype)
         if isinstance(self.objective, PPOObjective):
             advantages, returns = compute_gae(
                 rewards=shaped_rewards,
@@ -156,11 +157,19 @@ class OnlineRLTrainer(BaseTrainer):
                 gamma=self.gamma,
                 gae_lambda=self.gae_lambda,
             )
+            if torch.any(token_mask):
+                nonzero_advantage_token_fraction = (
+                    advantages[token_mask].abs() > 1.0e-8
+                ).float().mean()
             advantages = normalize_advantages(advantages, token_mask)
         else:
             sequence_advantages, _ = group_relative_advantages(rewards, self.group_size)
             sequence_advantages = sequence_advantages.to(self.device)
             advantages = broadcast_sequence_advantages(sequence_advantages, token_mask)
+            if torch.any(token_mask):
+                nonzero_advantage_token_fraction = (
+                    advantages[token_mask].abs() > 1.0e-8
+                ).float().mean()
             advantages = normalize_advantages(advantages, token_mask)
             returns = advantages.clone()
 
@@ -183,7 +192,9 @@ class OnlineRLTrainer(BaseTrainer):
                 "raw_examples": raw_examples,
                 "mean_kl": mean_kl(old_logprobs, ref_logprobs, token_mask),
                 "mean_reward": rewards.mean(),
+                "mean_group_reward": rewards.mean(),
                 "mean_response_length": response_lengths.to(old_logprobs.dtype).mean(),
+                "nonzero_advantage_token_fraction": nonzero_advantage_token_fraction,
                 "format_compliance_rate": format_compliance.mean() if format_compliance is not None else None,
             },
         )
@@ -191,11 +202,28 @@ class OnlineRLTrainer(BaseTrainer):
 
     def update_from_rollout(self, rollout: RolloutBatch) -> dict[str, float]:
         """Run one policy update over a cached rollout batch."""
-        aggregate: dict[str, float] = {}
+        metric_history: dict[str, list[float]] = {}
         first_ratio_mean: float | None = None
+        first_ratio_min: float | None = None
+        first_ratio_max: float | None = None
         for _ in range(self.epochs_per_rollout):
             for minibatch in rollout.iter_minibatches(self.update_minibatch_size):
                 minibatch = minibatch.to(self.device)
+                degenerate = None
+                if minibatch.sequence_advantages is not None:
+                    degenerate = float((minibatch.sequence_advantages.abs() < 1.0e-6).float().mean().item())
+                    if degenerate >= 1.0:
+                        metrics = {
+                            "loss": 0.0,
+                            "policy_loss": 0.0,
+                            "kl_penalty": 0.0,
+                            "ratio_mean": 1.0,
+                            "clipped_fraction": 0.0,
+                            "degenerate_fraction": degenerate,
+                        }
+                        for key, value in metrics.items():
+                            metric_history.setdefault(key, []).append(value)
+                        continue
                 self.model.train()
                 outputs = self.model(
                     input_ids=minibatch.input_ids,
@@ -204,7 +232,10 @@ class OnlineRLTrainer(BaseTrainer):
                 new_logprobs, token_mask = gather_token_logprobs(outputs.logits, minibatch.labels)
                 if first_ratio_mean is None:
                     ratios = torch.exp(new_logprobs - minibatch.old_logprobs)
-                    first_ratio_mean = float(ratios[token_mask].mean().detach().cpu().item())
+                    if torch.any(token_mask):
+                        first_ratio_mean = float(ratios[token_mask].mean().detach().cpu().item())
+                        first_ratio_min = float(ratios[token_mask].min().detach().cpu().item())
+                        first_ratio_max = float(ratios[token_mask].max().detach().cpu().item())
                 if isinstance(self.objective, PPOObjective):
                     if self.value_model is None:
                         raise ValueError("PPO requires a value model.")
@@ -232,19 +263,35 @@ class OnlineRLTrainer(BaseTrainer):
                         mask=token_mask,
                         kl_values=kl_values,
                     )
-                    if minibatch.sequence_advantages is not None:
-                        degenerate = float((minibatch.sequence_advantages.abs() < 1.0e-6).float().mean().item())
+                    if degenerate is not None:
                         loss_output.metrics["degenerate_fraction"] = degenerate
 
                 self._backward_and_step(loss_output.loss)
-                aggregate = self.log_output(loss_output.metrics)
+                metrics = self.log_output(loss_output.metrics)
+                if self.last_step_was_optimizer_step and self.last_gradient_norm is not None:
+                    metrics["gradient_norm"] = self.last_gradient_norm
+                for key, value in metrics.items():
+                    metric_history.setdefault(key, []).append(value)
         self.flush()
+        aggregate = {
+            key: sum(values) / len(values)
+            for key, values in metric_history.items()
+            if values
+        }
         if first_ratio_mean is not None:
             aggregate["ratio_start_mean"] = first_ratio_mean
+        if first_ratio_min is not None:
+            aggregate["ratio_start_min"] = first_ratio_min
+        if first_ratio_max is not None:
+            aggregate["ratio_start_max"] = first_ratio_max
         if rollout.meta is not None and "mean_kl" in rollout.meta:
             aggregate["rollout_mean_kl"] = float(rollout.meta["mean_kl"].detach().cpu().item())
             aggregate["mean_reward"] = float(rollout.meta["mean_reward"].detach().cpu().item())
+            aggregate["mean_group_reward"] = float(rollout.meta["mean_group_reward"].detach().cpu().item())
             aggregate["mean_response_length"] = float(rollout.meta["mean_response_length"].detach().cpu().item())
+            aggregate["nonzero_advantage_token_fraction"] = float(
+                rollout.meta["nonzero_advantage_token_fraction"].detach().cpu().item()
+            )
             format_compliance = rollout.meta.get("format_compliance_rate")
             if format_compliance is not None:
                 aggregate["format_compliance_rate"] = float(format_compliance.detach().cpu().item())

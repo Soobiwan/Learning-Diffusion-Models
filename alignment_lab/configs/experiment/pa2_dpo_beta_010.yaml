@@ -1,0 +1,11 @@
+name: pa2_dpo_beta_010
+model: pa2_sft_hh_rlhf_policy_checkpoint
+data: hh_rlhf
+method: dpo
+reference_model: pa2_sft_hh_rlhf_reference_checkpoint
+reward_model: pa2_rm_hh_rlhf_checkpoint
+overrides:
+  method:
+    beta: 0.1
+  evaluation:
+    kl_mode: full_vocab

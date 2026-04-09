@@ -1,0 +1,8 @@
+name: pa2_sft_hh_rlhf
+model: smollm2_360m_lora
+data: hh_rlhf
+method: sft
+reward_model: pa2_rm_hh_rlhf_checkpoint
+overrides:
+  evaluation:
+    kl_mode: full_vocab

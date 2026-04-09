@@ -54,9 +54,9 @@ def resolve_config(config_path: str, sample_limit: int | None = None, max_steps:
 
 def summarize_config(config: dict[str, Any]) -> str:
     """Return a compact human-readable summary."""
-    model = config["model"]["hf_path"]
-    method = config["method"]["name"]
-    adapter = config["data"]["adapter"]
+    model = config.get("model", {}).get("hf_path", "<unspecified>")
+    method = config.get("method", {}).get("name", "<unspecified>")
+    adapter = config.get("data", {}).get("adapter", "<unspecified>")
     return f"experiment={config['experiment_name']} method={method} dataset={adapter} model={model}"
 
 

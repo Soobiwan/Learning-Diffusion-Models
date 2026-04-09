@@ -1,0 +1,7 @@
+run_id=20260409_200641
+mode=full
+root_dir=/media/fezan/ASi/DVLM/Learning-Diffusion-Models/alignment_lab
+python_bin=.venv/bin/python
+pytorch_cuda_alloc_conf=expandable_segments:True
+[2026-04-09 20:06:41] START 00_setup_audit
+command: .venv/bin/python -m alignlab.cli.setup_audit --config configs/experiment/pa2_ppo_hh_rlhf.yaml

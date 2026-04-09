@@ -65,6 +65,8 @@ def test_dpo_one_batch(tokenizer) -> None:
     )
     metrics = trainer.train_batch(batch)
     assert "z_margin" in metrics
+    assert "chosen_response_length" in metrics
+    assert "rejected_response_length" in metrics
 
 
 def test_ppo_one_batch(tokenizer) -> None:
@@ -90,6 +92,9 @@ def test_ppo_one_batch(tokenizer) -> None:
     metrics = trainer.update_from_rollout(rollout)
     assert "policy_loss" in metrics
     assert abs(metrics["ratio_start_mean"] - 1.0) < 1.0e-5
+    assert abs(metrics["ratio_start_min"] - 1.0) < 1.0e-5
+    assert abs(metrics["ratio_start_max"] - 1.0) < 1.0e-5
+    assert "gradient_norm" in metrics
     assert torch.allclose(rollout.old_logprobs, cached_old_logprobs)
 
 
@@ -114,6 +119,31 @@ def test_grpo_one_batch(tokenizer) -> None:
     assert "degenerate_fraction" in metrics
     assert "clipped_fraction" in metrics
     assert abs(metrics["ratio_start_mean"] - 1.0) < 1.0e-5
+    assert "nonzero_advantage_token_fraction" in metrics
+
+
+def test_grpo_degenerate_batch_skips_with_finite_metrics(tokenizer) -> None:
+    prompts = [PreferenceExample(prompt="Human: hello Assistant:", chosen="bad", rejected="bad")]
+    prompt_collator = PromptOnlyCollator(tokenizer=tokenizer, max_length=6)
+    prompt_batch = prompt_collator(prompts)
+    trainer = OnlineRLTrainer(
+        model=DummyCausalLM(vocab_size=tokenizer.vocab_size + 8, generation_cycle=[7, 7]),
+        objective=GRPOObjective(beta_kl=0.01),
+        reward_function=KeywordRewardFunction(),
+        tokenizer=tokenizer,
+        reference_model=DummyCausalLM(vocab_size=tokenizer.vocab_size + 8, generation_cycle=[7, 7]),
+        generation_config={"max_new_tokens": 1, "do_sample": False},
+        update_minibatch_size=2,
+        epochs_per_rollout=1,
+        group_size=2,
+        learning_rate=1.0e-3,
+        cpu_rollout_cache=False,
+    )
+    metrics = trainer.train_batch(prompt_batch)
+    assert metrics["degenerate_fraction"] == 1.0
+    assert metrics["loss"] == 0.0
+    assert metrics["policy_loss"] == 0.0
+    assert metrics["kl_penalty"] == 0.0
 
 
 def test_rlvr_one_batch(tokenizer) -> None:
@@ -136,3 +166,4 @@ def test_rlvr_one_batch(tokenizer) -> None:
     metrics = trainer.train_batch(prompt_batch)
     assert "loss" in metrics
     assert "format_compliance_rate" in metrics
+    assert "nonzero_advantage_token_fraction" in metrics

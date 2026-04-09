@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from alignlab.cli._shared import resolve_config
-from alignlab.data.adapters.gsm8k import extract_numeric_answer
+from alignlab.data.adapters.gsm8k import extract_numeric_answer, truncate_question_text
 from alignlab.data.adapters.hh_rlhf import HHRLHFAdapter
 from alignlab.data.collators import PreferenceCollator, PromptOnlyCollator, SFTCollator, build_prompt_response_features
 from alignlab.data.loaders import get_adapter, list_adapters
@@ -70,6 +70,13 @@ def test_answer_extractor_handles_multiple_formats() -> None:
     assert extract_numeric_answer("The answer is -12.5") == "-12.5"
     assert extract_numeric_answer("We compute... answer: 42") == "42"
     assert extract_numeric_answer("final number is 7 and that's it") == "7"
+    assert extract_numeric_answer(r"\boxed{64}") == "64"
+
+
+def test_gsm8k_question_truncation_caps_length() -> None:
+    question = " ".join(f"tok{i}" for i in range(250))
+    truncated = truncate_question_text(question, max_tokens=200)
+    assert len(truncated.split()) == 200
 
 
 def test_gsm8k_adapter_uses_pa2_prompt_template() -> None:

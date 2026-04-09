@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import torch
 from tqdm.auto import tqdm
 
 from ._shared import (
@@ -101,6 +102,16 @@ def main() -> None:
     tracker = ResourceTracker()
     train_rows: list[dict[str, float | int | str]] = []
     last_metrics: dict[str, float] | None = None
+
+    first_batch = next(iter(dataloader), None)
+    if first_batch is not None:
+        trainer.model.eval()
+        with tracker.measure_step():
+            with torch.no_grad():
+                _, initial_metrics = trainer.compute_loss(trainer.move_batch_to_device(first_batch))
+        initial_metrics["sanity_z_abs"] = abs(initial_metrics.get("z_margin", 0.0))
+        append_jsonl(log_path, {"event": "initialization_sanity", **initial_metrics})
+        tqdm.write(f"initialization_sanity={initial_metrics}")
 
     stop_training = False
     for epoch in range(1, num_epochs + 1):

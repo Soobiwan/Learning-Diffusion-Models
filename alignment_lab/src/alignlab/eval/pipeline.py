@@ -8,12 +8,13 @@ from pathlib import Path
 from typing import Any, Iterator, Sequence
 
 import torch
+import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
-from ..data.collators import PreferenceCollator, RewardModelCollator
-from ..data.schemas import PreferenceExample, VerifiableExample
+from ..data.collators import PreferenceCollator, RewardModelCollator, SFTCollator
+from ..data.schemas import PreferenceExample, SFTExample, VerifiableExample
 from ..models.generation import generate_batched
-from ..rollout.kl import per_token_kl
+from ..rollout.kl import full_vocab_token_kl_from_logits, per_token_kl
 from ..rollout.logprobs import gather_token_logprobs, sequence_logprobs_from_logits
 from ..rollout.verifiers import GSM8KAnswerVerifier
 from .generations import build_generation_table
@@ -110,6 +111,7 @@ def _kl_on_generated_sequences(
     policy_model: Any,
     reference_model: Any,
     generated: dict[str, Any],
+    kl_mode: str = "sampled",
 ) -> tuple[float, int]:
     if reference_model is None:
         return 0.0, 0
@@ -122,6 +124,13 @@ def _kl_on_generated_sequences(
         input_ids=generated["input_ids"],
         attention_mask=generated["attention_mask"],
     )
+    if kl_mode == "full_vocab":
+        kl_values, full_mask = full_vocab_token_kl_from_logits(
+            policy_logits=policy_outputs.logits,
+            reference_logits=reference_outputs.logits,
+            labels=generated["labels"],
+        )
+        return float(kl_values.sum().detach().cpu().item()), int(full_mask.sum().detach().cpu().item())
     reference_logprobs, _ = gather_token_logprobs(reference_outputs.logits, generated["labels"])
     kl_values = per_token_kl(policy_logprobs, reference_logprobs, mask)
     return float(kl_values.sum().detach().cpu().item()), int(mask.sum().detach().cpu().item())
@@ -235,6 +244,47 @@ def evaluate_preference_policy(
     return preference_accuracy_from_logprobs(torch.cat(chosen_logprobs), torch.cat(rejected_logprobs))
 
 
+def evaluate_sft_perplexity(
+    model: Any,
+    tokenizer: Any,
+    examples: Sequence[SFTExample],
+    batch_size: int,
+    max_length: int,
+) -> dict[str, float]:
+    """Compute held-out response-token perplexity for SFT checkpoints."""
+    collator = SFTCollator(tokenizer=tokenizer, max_length=max_length)
+    dataloader = DataLoader(list(examples), batch_size=batch_size, shuffle=False, collate_fn=collator)
+    total_loss = 0.0
+    total_tokens = 0
+    with _preserve_training_mode(model):
+        for batch in dataloader:
+            device = next(model.parameters()).device
+            batch = {
+                key: value.to(device) if isinstance(value, torch.Tensor) else value
+                for key, value in batch.items()
+            }
+            outputs = model(input_ids=batch["input_ids"], attention_mask=batch["attention_mask"])
+            shift_logits = outputs.logits[:, :-1, :].contiguous()
+            shift_labels = batch["labels"][:, 1:].contiguous()
+            loss_sum = F.cross_entropy(
+                shift_logits.view(-1, shift_logits.size(-1)),
+                shift_labels.view(-1),
+                ignore_index=-100,
+                reduction="sum",
+            )
+            token_count = int(shift_labels.ne(-100).sum().detach().cpu().item())
+            total_loss += float(loss_sum.detach().cpu().item())
+            total_tokens += token_count
+    if total_tokens <= 0:
+        return {"heldout_loss": 0.0, "heldout_perplexity": 1.0, "num_eval_tokens": 0}
+    mean_loss = total_loss / total_tokens
+    return {
+        "heldout_loss": mean_loss,
+        "heldout_perplexity": float(torch.exp(torch.tensor(mean_loss)).item()),
+        "num_eval_tokens": total_tokens,
+    }
+
+
 def evaluate_hh_policy(
     config: dict[str, Any],
     candidate_model: Any,
@@ -250,6 +300,7 @@ def evaluate_hh_policy(
     baseline_model = baseline_model or reference_model
     baseline_tokenizer = baseline_tokenizer or candidate_tokenizer
     evaluation_cfg = config.get("evaluation", {})
+    kl_mode = str(evaluation_cfg.get("kl_mode", "sampled")).lower()
     prompt_limit = int(evaluation_cfg.get("num_eval_prompts", 200))
     sample_limit = int(evaluation_cfg.get("sample_table_size", 5))
     batch_size = int(config["training"].get("eval_batch_size", 1))
@@ -262,6 +313,7 @@ def evaluate_hh_policy(
     sample_rows: list[dict[str, Any]] = []
     kl_total = 0.0
     kl_tokens = 0
+    response_lengths: list[int] = []
 
     with ExitStack() as stack:
         stack.enter_context(_preserve_training_mode(candidate_model, reference_model, baseline_model))
@@ -285,8 +337,14 @@ def evaluate_hh_policy(
             baseline_rewards = reward_function.score_batch(prompts, baseline_generated["responses"]).tolist()
             candidate_scores.extend(float(score) for score in candidate_rewards)
             baseline_scores.extend(float(score) for score in baseline_rewards)
+            response_lengths.extend(len(response.split()) for response in candidate_generated["responses"])
 
-            batch_kl, batch_kl_tokens = _kl_on_generated_sequences(candidate_model, reference_model, candidate_generated)
+            batch_kl, batch_kl_tokens = _kl_on_generated_sequences(
+                candidate_model,
+                reference_model,
+                candidate_generated,
+                kl_mode=kl_mode,
+            )
             kl_total += batch_kl
             kl_tokens += batch_kl_tokens
 
@@ -299,6 +357,8 @@ def evaluate_hh_policy(
                             "baseline_response": baseline_generated["responses"][idx],
                             "candidate_reward": candidate_rewards[idx],
                             "baseline_reward": baseline_rewards[idx],
+                            "candidate_response_length": len(candidate_generated["responses"][idx].split()),
+                            "baseline_response_length": len(baseline_generated["responses"][idx].split()),
                         }
                     )
                     if len(sample_rows) >= sample_limit:
@@ -308,6 +368,8 @@ def evaluate_hh_policy(
         "rm_score_mean": sum(candidate_scores) / len(candidate_scores) if candidate_scores else 0.0,
         "rm_win_rate_vs_sft": reward_model_win_rate_vs_sft(candidate_scores, baseline_scores) if candidate_scores else 0.0,
         "kl_from_reference": (kl_total / kl_tokens) if kl_tokens > 0 else 0.0,
+        "kl_mode": kl_mode,
+        "mean_response_length": (sum(response_lengths) / len(response_lengths)) if response_lengths else 0.0,
         "num_eval_prompts": len(selected_prompts),
     }
     if pair_examples is not None:
@@ -341,6 +403,7 @@ def evaluate_rlvr_policy(
 ) -> dict[str, Any]:
     verifier = verifier or GSM8KAnswerVerifier()
     evaluation_cfg = config.get("evaluation", {})
+    kl_mode = str(evaluation_cfg.get("kl_mode", "sampled")).lower()
     prompt_limit = int(evaluation_cfg.get("num_eval_prompts", 200))
     sample_limit = int(evaluation_cfg.get("sample_table_size", 5))
     batch_size = int(config["training"].get("eval_batch_size", 1))
@@ -367,7 +430,12 @@ def evaluate_rlvr_policy(
             responses.extend(generated["responses"])
             gold_answers.extend([example.gold_answer for example in batch_examples])
 
-            batch_kl, batch_kl_tokens = _kl_on_generated_sequences(candidate_model, reference_model, generated)
+            batch_kl, batch_kl_tokens = _kl_on_generated_sequences(
+                candidate_model,
+                reference_model,
+                generated,
+                kl_mode=kl_mode,
+            )
             kl_total += batch_kl
             kl_tokens += batch_kl_tokens
 
@@ -396,6 +464,7 @@ def evaluate_rlvr_policy(
         "format_compliance_rate": sum(format_compliance) / len(format_compliance) if format_compliance else 0.0,
         "mean_response_length": sum(response_lengths) / len(response_lengths) if response_lengths else 0.0,
         "kl_from_reference": (kl_total / kl_tokens) if kl_tokens > 0 else 0.0,
+        "kl_mode": kl_mode,
         "num_eval_prompts": len(selected_examples),
     }
     summary_path = write_json(experiment_table_path(config, stem), summary)

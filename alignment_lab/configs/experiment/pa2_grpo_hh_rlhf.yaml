@@ -1,0 +1,19 @@
+name: pa2_grpo_hh_rlhf
+model: pa2_sft_hh_rlhf_policy_checkpoint
+data: hh_rlhf
+method: grpo
+reference_model: pa2_sft_hh_rlhf_reference_checkpoint
+reward_model: pa2_rm_hh_rlhf_checkpoint
+overrides:
+  method:
+    rollout_batch_size: 1
+    group_size: 2
+    update_minibatch_size: 1
+    max_prompt_length: 256
+    max_response_length: 64
+    max_sequence_length: 384
+  generation:
+    max_new_tokens: 64
+    group_size: 2
+  evaluation:
+    kl_mode: full_vocab

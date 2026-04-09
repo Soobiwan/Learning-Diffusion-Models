@@ -39,7 +39,14 @@ class BaseTrainer:
         optimizer: torch.optim.Optimizer | None = None,
         gradient_accumulation_steps: int = 1,
     ) -> None:
-        mp_mode = mixed_precision if (mixed_precision != "fp16" or torch.cuda.is_available()) else "no"
+        mp_aliases = {
+            "fp32": "no",
+            "float32": "no",
+            "float": "no",
+            "none": "no",
+        }
+        normalized_mixed_precision = mp_aliases.get(str(mixed_precision).lower(), mixed_precision)
+        mp_mode = normalized_mixed_precision if (normalized_mixed_precision != "fp16" or torch.cuda.is_available()) else "no"
         self.accelerator = Accelerator(mixed_precision=mp_mode)
         self.model = model.to(self.accelerator.device)
         self.trainable_parameters: list[torch.nn.Parameter] = list(self.model.parameters())
@@ -49,6 +56,7 @@ class BaseTrainer:
         self.logger = get_logger(self.__class__.__name__)
         self.step = 0
         self.last_step_was_optimizer_step = False
+        self.last_gradient_norm: float | None = None
         self._micro_steps_since_update = 0
         self.optimizer.zero_grad(set_to_none=True)
 
@@ -122,8 +130,11 @@ class BaseTrainer:
             raise ValueError("Trainer received an empty parameter list.")
 
     def _optimizer_step(self) -> None:
+        grad_norm = None
         if self.max_grad_norm is not None:
-            self.accelerator.clip_grad_norm_(self.trainable_parameters, self.max_grad_norm)
+            grad_norm = self.accelerator.clip_grad_norm_(self.trainable_parameters, self.max_grad_norm)
+        if grad_norm is not None:
+            self.last_gradient_norm = float(grad_norm.detach().cpu().item())
         self.optimizer.step()
         self.optimizer.zero_grad(set_to_none=True)
         self.step += 1

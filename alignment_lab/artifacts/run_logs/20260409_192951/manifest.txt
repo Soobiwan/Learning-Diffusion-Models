@@ -1,0 +1,26 @@
+run_id=20260409_192951
+mode=smoke
+root_dir=/media/fezan/ASi/DVLM/Learning-Diffusion-Models/alignment_lab
+python_bin=.venv/bin/python
+pytorch_cuda_alloc_conf=expandable_segments:True
+[2026-04-09 19:29:51] START 00_setup_audit
+command: .venv/bin/python -m alignlab.cli.setup_audit --config configs/experiment/pa2_ppo_hh_rlhf.yaml
+[2026-04-09 19:30:34] DONE 00_setup_audit log=artifacts/run_logs/20260409_192951/00_setup_audit.log
+[2026-04-09 19:30:34] START 01_train_rm_smoke
+command: .venv/bin/python -m alignlab.cli.train_rm --config configs/experiment/pa2_rm_hh_rlhf.yaml --sample-limit 32 --max-steps 2
+[2026-04-09 19:31:09] DONE 01_train_rm_smoke log=artifacts/run_logs/20260409_192951/01_train_rm_smoke.log
+[2026-04-09 19:31:09] START 02_train_sft_smoke
+command: .venv/bin/python -m alignlab.cli.train_sft --config configs/experiment/pa2_sft_hh_rlhf.yaml --sample-limit 32 --max-steps 2
+[2026-04-09 19:38:16] DONE 02_train_sft_smoke log=artifacts/run_logs/20260409_192951/02_train_sft_smoke.log
+[2026-04-09 19:38:16] START 03_train_dpo_smoke
+command: .venv/bin/python -m alignlab.cli.train_pairwise --config configs/experiment/pa2_dpo_hh_rlhf.yaml --sample-limit 32 --max-steps 2
+[2026-04-09 19:45:51] DONE 03_train_dpo_smoke log=artifacts/run_logs/20260409_192951/03_train_dpo_smoke.log
+[2026-04-09 19:45:51] START 04_train_ppo_smoke
+command: .venv/bin/python -m alignlab.cli.train_online --config configs/experiment/pa2_ppo_hh_rlhf.yaml --sample-limit 32 --max-steps 2
+[2026-04-09 19:50:21] DONE 04_train_ppo_smoke log=artifacts/run_logs/20260409_192951/04_train_ppo_smoke.log
+[2026-04-09 19:50:21] START 05_train_grpo_smoke
+command: .venv/bin/python -m alignlab.cli.train_online --config configs/experiment/pa2_grpo_hh_rlhf.yaml --sample-limit 32 --max-steps 2
+[2026-04-09 19:54:39] DONE 05_train_grpo_smoke log=artifacts/run_logs/20260409_192951/05_train_grpo_smoke.log
+[2026-04-09 19:54:39] START 06_train_rlvr_smoke
+command: .venv/bin/python -m alignlab.cli.train_online --config configs/experiment/pa2_rlvr_gsm8k.yaml --sample-limit 32 --max-steps 2
+[2026-04-09 19:55:37] DONE 06_train_rlvr_smoke log=artifacts/run_logs/20260409_192951/06_train_rlvr_smoke.log

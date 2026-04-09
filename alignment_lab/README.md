@@ -54,7 +54,15 @@ python -m alignlab.cli.train_rm --config configs/experiment/rm_hh_rlhf.yaml --dr
 python -m alignlab.cli.train_pairwise --config configs/experiment/dpo_hh_rlhf.yaml --dry-run
 python -m alignlab.cli.train_online --config configs/experiment/ppo_hh_rlhf.yaml --dry-run
 python -m alignlab.cli.train_online --config configs/experiment/rlvr_gsm8k.yaml --dry-run
+python -m alignlab.cli.setup_audit --config configs/experiment/pa2_ppo_hh_rlhf.yaml --dry-run
+python -m alignlab.cli.compare_pa2 --dry-run
+bash scripts/run_pa2_pipeline.sh smoke
 ```
+
+## PA2 docs
+
+- `docs/pa2/implementation_status.md` tracks the C0-C8 coding checklist against code and artifacts.
+- `docs/pa2/implementation_guide_viva.md` explains the implementation, caveats, and likely viva-style questions.
 
 ## Notes
 
@@ -64,4 +72,6 @@ python -m alignlab.cli.train_online --config configs/experiment/rlvr_gsm8k.yaml 
 - Default policy experiments target `HuggingFaceTB/SmolLM2-360M-Instruct`.
 - Default RM and PPO value backbones target `meta-llama/Llama-3.2-1B-Instruct`.
 - `train_rm` saves a concrete checkpoint under `artifacts/checkpoints/<experiment_name>/final`, and PPO/GRPO configs are wired to consume that RM artifact path.
+- `scripts/run_pa2_pipeline.sh` writes per-stage terminal logs to `artifacts/run_logs/<timestamp>/` and sets `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True` unless you already provided it.
+- The PA2 online configs were reduced to hardware-fit budgets for a 10.7 GB GPU; see `docs/pa2/implementation_guide_viva.md` for the exact values and rationale.
 - Several method and dataset extensions are scaffolded with specific TODO markers for incremental follow-up.

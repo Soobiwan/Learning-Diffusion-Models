@@ -40,6 +40,10 @@ evaluation:
   num_eval_pairs: 200
   sample_table_size: 5
   histogram_bins: 20
+  kl_mode: sampled
+  sft_eval_every_steps: 100
+  sft_sample_every_steps: 100
+  extractor_precheck_limit: 20
 memory:
   cpu_rollout_cache: true
   quantize_frozen_models: true

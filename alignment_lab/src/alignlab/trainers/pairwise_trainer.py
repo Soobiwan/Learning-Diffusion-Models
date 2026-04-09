@@ -72,6 +72,11 @@ class PairwiseTrainer(BaseTrainer):
             reference_chosen_logps=reference_chosen,
             reference_rejected_logps=reference_rejected,
         )
+        chosen_response_lengths = batch["chosen_response_mask"].sum(dim=-1).float().mean()
+        rejected_response_lengths = batch["rejected_response_mask"].sum(dim=-1).float().mean()
+        loss_output.metrics["chosen_response_length"] = chosen_response_lengths.detach()
+        loss_output.metrics["rejected_response_length"] = rejected_response_lengths.detach()
+        loss_output.metrics["response_length_gap"] = (chosen_response_lengths - rejected_response_lengths).detach()
         return loss_output.loss, self.log_output(loss_output.metrics)
 
     def train_batch(self, batch: dict[str, torch.Tensor]) -> dict[str, float]:

@@ -15,6 +15,15 @@ _ANSWER_PHRASE_PATTERN = re.compile(
     re.IGNORECASE,
 )
 _HASH_PATTERN = re.compile(r"####\s*([-+]?\d[\d,]*(?:\.\d+)?)")
+_BOXED_PATTERN = re.compile(r"(?:\\boxed|boxed)\s*\{\s*([-+]?\d[\d,]*(?:\.\d+)?)\s*\}")
+
+
+def truncate_question_text(question: str, max_tokens: int = 200) -> str:
+    """Trim a GSM8K question to a fixed approximate token budget before templating."""
+    tokens = question.strip().split()
+    if len(tokens) <= max_tokens:
+        return question.strip()
+    return " ".join(tokens[:max_tokens]).strip()
 
 
 def normalize_numeric_answer(text: str) -> str:
@@ -26,7 +35,7 @@ def extract_numeric_answer(text: str) -> str | None:
     """Extract the most likely numeric answer from free-form GSM8K text."""
     if not text:
         return None
-    for pattern in (_HASH_PATTERN, _ANSWER_PHRASE_PATTERN):
+    for pattern in (_HASH_PATTERN, _BOXED_PATTERN, _ANSWER_PHRASE_PATTERN):
         match = pattern.search(text)
         if match:
             return normalize_numeric_answer(match.group(1))
@@ -50,7 +59,7 @@ class GSM8KAdapter(DatasetAdapter):
         if gold_answer is None:
             raise ValueError("Could not extract a numeric GSM8K answer from the raw row.")
         return VerifiableExample(
-            prompt=format_gsm8k_prompt(str(raw_example["question"]).strip()),
+            prompt=format_gsm8k_prompt(truncate_question_text(str(raw_example["question"]).strip())),
             gold_answer=gold_answer,
             meta={"source": self.name, "answer_text": answer_text},
         )

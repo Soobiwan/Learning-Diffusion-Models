@@ -2,12 +2,15 @@ from __future__ import annotations
 
 import torch
 
+from alignlab.data.collators import PreferenceCollator
+from alignlab.data.schemas import PreferenceExample
 from alignlab.objectives.dpo import dpo_loss
 from alignlab.objectives.grpo import clipped_group_policy_loss
 from alignlab.objectives.ppo import clipped_policy_loss
 from alignlab.rollout.advantages import group_relative_advantages, normalize_advantages
 from alignlab.rollout.gae import compute_gae
 from alignlab.rollout.logprobs import sequence_logprobs_from_logits
+from tests.helpers import DummyCausalLM, DummyTokenizer
 
 
 def test_sequence_logprob_masking_ignores_prompt_tokens() -> None:
@@ -65,6 +68,25 @@ def test_ppo_clipping_behavior() -> None:
     assert loss.item() < 0.0
 
 
+def test_ppo_clipping_blocks_gradient_for_positive_advantage_above_clip() -> None:
+    new_logprobs = torch.tensor([[torch.log(torch.tensor(1.5)).item()]], requires_grad=True)
+    old_logprobs = torch.log(torch.tensor([[1.0]]))
+    advantages = torch.tensor([[1.0]])
+    mask = torch.tensor([[1]], dtype=torch.bool)
+    loss, ratios, clipped_fraction = clipped_policy_loss(
+        new_logprobs=new_logprobs,
+        old_logprobs=old_logprobs,
+        advantages=advantages,
+        mask=mask,
+        clip_range=0.2,
+    )
+    loss.backward()
+    assert torch.allclose(loss.detach(), torch.tensor(-1.2), atol=1.0e-5)
+    assert torch.allclose(ratios.detach(), torch.tensor([[1.5]]), atol=1.0e-5)
+    assert torch.allclose(clipped_fraction.detach(), torch.tensor(1.0), atol=1.0e-5)
+    assert torch.allclose(new_logprobs.grad, torch.tensor([[0.0]]), atol=1.0e-6)
+
+
 def test_grpo_group_advantages() -> None:
     rewards = torch.tensor([1.0, 3.0, 2.0, 2.0])
     advantages, group_std = group_relative_advantages(rewards, group_size=2)
@@ -110,3 +132,21 @@ def test_masked_advantage_normalization_ignores_padding_tokens() -> None:
     )
     assert torch.allclose(normalized[:, 0], torch.tensor([-1.0, 1.0]), atol=1.0e-5)
     assert torch.allclose(normalized[:, 1], torch.tensor([0.0, 0.0]), atol=1.0e-5)
+
+
+def test_dpo_sequence_logprob_is_padding_invariant() -> None:
+    tokenizer = DummyTokenizer()
+    model = DummyCausalLM(vocab_size=tokenizer.vocab_size + 8)
+    example = PreferenceExample(prompt="Human: hello Assistant:", chosen="good", rejected="bad")
+
+    def _score(padding_side: str) -> torch.Tensor:
+        tokenizer.padding_side = padding_side
+        batch = PreferenceCollator(tokenizer=tokenizer, max_length=12)([example])
+        outputs = model(
+            input_ids=batch["chosen_input_ids"],
+            attention_mask=batch["chosen_attention_mask"],
+        )
+        score, _ = sequence_logprobs_from_logits(outputs.logits, batch["chosen_labels"])
+        return score
+
+    assert torch.allclose(_score("left"), _score("right"), atol=1.0e-5)

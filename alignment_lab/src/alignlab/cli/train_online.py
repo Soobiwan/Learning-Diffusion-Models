@@ -23,6 +23,7 @@ from ._shared import (
 )
 from ..common.checkpointing import save_pretrained_artifact
 from ..eval.pipeline import evaluate_hh_policy, evaluate_rlvr_policy
+from ..eval.pa2_tools import verify_gsm8k_answer_extractor
 from ..eval.reports import (
     ResourceTracker,
     append_jsonl,
@@ -41,6 +42,7 @@ def main() -> None:
     tqdm.write(summarize_config(config))
     if args.dry_run:
         return
+    log_path = experiment_log_path(config)
 
     from ..models.policy import load_policy_bundle
     from ..models.reference import build_reference_bundle
@@ -116,10 +118,20 @@ def main() -> None:
     )
     max_steps = int(config["method"].get("max_steps", config["training"]["max_steps"]))
     eval_every = evaluation_every_steps(config)
-    log_path = experiment_log_path(config)
     tracker = ResourceTracker()
     train_rows: list[dict[str, float | int | str]] = []
     verifier = GSM8KAnswerVerifier()
+
+    if config["method"]["name"].lower() == "rlvr":
+        extractor_summary = verify_gsm8k_answer_extractor(
+            verifiable_examples(examples),
+            verifier=verifier,
+            gold_limit=int(config.get("evaluation", {}).get("extractor_precheck_limit", 20)),
+            wrong_limit=int(config.get("evaluation", {}).get("extractor_precheck_limit", 20)),
+        )
+        write_json(experiment_table_path(config, "extractor_precheck"), extractor_summary)
+        append_jsonl(log_path, {"event": "extractor_precheck", **extractor_summary})
+        tqdm.write(f"extractor_precheck={extractor_summary}")
 
     total_rollouts = min(len(dataloader), max_steps)
     with tqdm(

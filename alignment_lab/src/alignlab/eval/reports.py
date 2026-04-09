@@ -115,6 +115,35 @@ def plot_metric_curves(path: Path, rows: Sequence[dict[str, Any]], keys: Sequenc
     return path
 
 
+def plot_scalar_sweep(
+    path: Path,
+    rows: Sequence[dict[str, Any]],
+    x_key: str,
+    metric_keys: Sequence[str],
+    title: str | None = None,
+    x_label: str | None = None,
+) -> Path:
+    """Plot one or more metrics against a scalar sweep variable."""
+    _ensure_parent(path)
+    if not rows:
+        raise ValueError("Cannot plot a scalar sweep without rows.")
+    x_values = [float(row[x_key]) for row in rows]
+    fig, axis = plt.subplots(figsize=(8, 5))
+    for key in metric_keys:
+        values = [row.get(key) for row in rows]
+        if any(value is not None for value in values):
+            axis.plot(x_values, values, marker="o", label=key)
+    axis.set_xlabel(x_label or x_key)
+    axis.set_ylabel("Value")
+    if title:
+        axis.set_title(title)
+    axis.legend()
+    fig.tight_layout()
+    fig.savefig(path)
+    plt.close(fig)
+    return path
+
+
 class ResourceTracker:
     """Track wall time and peak CUDA memory across a training or evaluation run."""
 

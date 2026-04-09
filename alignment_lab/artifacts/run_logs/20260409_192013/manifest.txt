@@ -1,0 +1,16 @@
+run_id=20260409_192013
+mode=smoke
+root_dir=/media/fezan/ASi/DVLM/Learning-Diffusion-Models/alignment_lab
+python_bin=.venv/bin/python
+pytorch_cuda_alloc_conf=expandable_segments:True
+[2026-04-09 19:20:13] START 00_setup_audit
+command: .venv/bin/python -m alignlab.cli.setup_audit --config configs/experiment/pa2_ppo_hh_rlhf.yaml
+[2026-04-09 19:20:57] DONE 00_setup_audit log=artifacts/run_logs/20260409_192013/00_setup_audit.log
+[2026-04-09 19:20:57] START 01_train_rm_smoke
+command: .venv/bin/python -m alignlab.cli.train_rm --config configs/experiment/pa2_rm_hh_rlhf.yaml --sample-limit 32 --max-steps 2
+[2026-04-09 19:21:28] DONE 01_train_rm_smoke log=artifacts/run_logs/20260409_192013/01_train_rm_smoke.log
+[2026-04-09 19:21:28] START 02_train_sft_smoke
+command: .venv/bin/python -m alignlab.cli.train_sft --config configs/experiment/pa2_sft_hh_rlhf.yaml --sample-limit 32 --max-steps 2
+[2026-04-09 19:28:26] DONE 02_train_sft_smoke log=artifacts/run_logs/20260409_192013/02_train_sft_smoke.log
+[2026-04-09 19:28:26] START 03_train_dpo_smoke
+command: .venv/bin/python -m alignlab.cli.train_pairwise --config configs/experiment/pa2_dpo_hh_rlhf.yaml --sample-limit 32 --max-steps 2

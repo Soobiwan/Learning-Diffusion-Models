@@ -8,6 +8,7 @@ from tqdm.auto import tqdm
 
 from ._shared import (
     build_argument_parser,
+    build_prompt_collator,
     build_sft_collator,
     configured_gradient_accumulation_steps,
     configured_max_steps,
@@ -22,7 +23,7 @@ from ._shared import (
     summarize_config,
 )
 from ..common.checkpointing import save_pretrained_artifact
-from ..eval.pipeline import evaluate_hh_policy
+from ..eval.pipeline import evaluate_hh_policy, evaluate_sft_perplexity
 from ..eval.reports import (
     ResourceTracker,
     append_jsonl,
@@ -30,6 +31,7 @@ from ..eval.reports import (
     experiment_plot_path,
     experiment_table_path,
     plot_metric_curves,
+    write_generation_artifacts,
     write_json,
 )
 
@@ -49,6 +51,10 @@ def main() -> None:
 
     bundle = load_policy_bundle(model_spec_from_config(config))
     examples = sft_examples(load_training_examples(config))
+    eval_pref_examples = preference_examples(load_eval_examples(config))
+    eval_limit = int(config.get("evaluation", {}).get("num_eval_prompts", 200))
+    heldout_sft_examples = sft_examples(eval_pref_examples[:eval_limit])
+    sample_prompt_examples = eval_pref_examples[: int(config.get("evaluation", {}).get("sample_table_size", 5))]
     dataloader = make_dataloader(
         examples=examples,
         collator=build_sft_collator(bundle.tokenizer, config),
@@ -64,10 +70,17 @@ def main() -> None:
     )
     max_steps = configured_max_steps(config)
     num_epochs = configured_num_epochs(config)
+    sft_eval_every = int(config.get("evaluation", {}).get("sft_eval_every_steps", 100))
+    sft_sample_every = int(config.get("evaluation", {}).get("sft_sample_every_steps", sft_eval_every))
     log_path = experiment_log_path(config)
     tracker = ResourceTracker()
     train_rows: list[dict[str, float | int | str]] = []
     last_metrics: dict[str, float] | None = None
+    prompt_collator = build_prompt_collator(bundle.tokenizer, config)
+    greedy_generation_config = dict(config["generation"])
+    greedy_generation_config["do_sample"] = False
+    greedy_generation_config["temperature"] = 1.0
+    greedy_generation_config["top_p"] = 1.0
 
     stop_training = False
     for epoch in range(1, num_epochs + 1):
@@ -95,6 +108,33 @@ def main() -> None:
                 append_jsonl(log_path, record)
                 train_rows.append(record)
                 tqdm.write(f"step={trainer.step} metrics={metrics}")
+                if sft_eval_every > 0 and trainer.step % sft_eval_every == 0:
+                    perplexity_summary = evaluate_sft_perplexity(
+                        model=bundle.model,
+                        tokenizer=bundle.tokenizer,
+                        examples=heldout_sft_examples,
+                        batch_size=int(config["training"].get("eval_batch_size", 1)),
+                        max_length=int(config["method"].get("max_sequence_length", config["tokenization"]["max_sequence_length"])),
+                    )
+                    append_jsonl(log_path, {"event": "heldout_perplexity", "step": trainer.step, **perplexity_summary})
+                    tqdm.write(f"heldout_step={trainer.step} metrics={perplexity_summary}")
+                if sft_sample_every > 0 and trainer.step % sft_sample_every == 0 and sample_prompt_examples:
+                    sample_batch = prompt_collator(sample_prompt_examples)
+                    responses = trainer.sample_generations(
+                        tokenizer=bundle.tokenizer,
+                        prompt_batch=sample_batch,
+                        generation_config=greedy_generation_config,
+                    )
+                    sample_rows = [
+                        {"prompt": example.prompt, "response": response}
+                        for example, response in zip(sample_prompt_examples, responses)
+                    ]
+                    sample_paths = write_generation_artifacts(
+                        config,
+                        f"sft_samples_step_{trainer.step:05d}",
+                        sample_rows,
+                    )
+                    append_jsonl(log_path, {"event": "sample_generation", "step": trainer.step, "artifacts": sample_paths})
                 if max_steps is not None and trainer.step >= max_steps:
                     stop_training = True
                     break
@@ -123,14 +163,13 @@ def main() -> None:
                 tokenizer=reward_bundle.tokenizer,
                 max_length=int(config["method"].get("max_sequence_length", config["tokenization"]["max_sequence_length"])),
             )
-            eval_examples = preference_examples(load_eval_examples(config))
             reward_summary = evaluate_hh_policy(
                 config,
                 candidate_model=bundle.model,
                 candidate_tokenizer=bundle.tokenizer,
                 reference_model=bundle.model,
                 reward_function=reward_function,
-                prompt_examples=eval_examples,
+                prompt_examples=eval_pref_examples,
                 pair_examples=None,
                 baseline_model=bundle.model,
                 baseline_tokenizer=bundle.tokenizer,

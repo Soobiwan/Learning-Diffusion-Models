@@ -1,0 +1,39 @@
+Traceback (most recent call last):
+  File "/media/fezan/ASi/DVLM/Learning-Diffusion-Models/alignment_lab/.venv/lib/python3.11/site-packages/transformers/utils/hub.py", line 402, in cached_file
+    resolved_file = hf_hub_download(
+                    ^^^^^^^^^^^^^^^^
+  File "/media/fezan/ASi/DVLM/Learning-Diffusion-Models/alignment_lab/.venv/lib/python3.11/site-packages/huggingface_hub/utils/_validators.py", line 106, in _inner_fn
+    validate_repo_id(arg_value)
+  File "/media/fezan/ASi/DVLM/Learning-Diffusion-Models/alignment_lab/.venv/lib/python3.11/site-packages/huggingface_hub/utils/_validators.py", line 154, in validate_repo_id
+    raise HFValidationError(
+huggingface_hub.errors.HFValidationError: Repo id must be in the form 'repo_name' or 'namespace/repo_name': 'artifacts/checkpoints/pa2_sft_hh_rlhf/final'. Use `repo_type` argument if needed.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/media/fezan/ASi/DVLM/Learning-Diffusion-Models/alignment_lab/src/alignlab/cli/setup_audit.py", line 185, in <module>
+    main()
+  File "/media/fezan/ASi/DVLM/Learning-Diffusion-Models/alignment_lab/src/alignlab/cli/setup_audit.py", line 163, in main
+    sections.append(_load_policy_section(config))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/media/fezan/ASi/DVLM/Learning-Diffusion-Models/alignment_lab/src/alignlab/cli/setup_audit.py", line 76, in _load_policy_section
+    bundle = load_policy_bundle(model_spec_from_config(config))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/media/fezan/ASi/DVLM/Learning-Diffusion-Models/alignment_lab/src/alignlab/models/policy.py", line 27, in load_policy_bundle
+    model = load_policy_model(spec)
+            ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/media/fezan/ASi/DVLM/Learning-Diffusion-Models/alignment_lab/src/alignlab/models/factory.py", line 133, in load_policy_model
+    model = _load_causal_lm_base(spec)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/media/fezan/ASi/DVLM/Learning-Diffusion-Models/alignment_lab/src/alignlab/models/factory.py", line 97, in _load_causal_lm_base
+    model = AutoModelForCausalLM.from_pretrained(spec.hf_path, **_base_model_kwargs(spec))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/media/fezan/ASi/DVLM/Learning-Diffusion-Models/alignment_lab/.venv/lib/python3.11/site-packages/transformers/models/auto/auto_factory.py", line 485, in from_pretrained
+    resolved_config_file = cached_file(
+                           ^^^^^^^^^^^^
+  File "/media/fezan/ASi/DVLM/Learning-Diffusion-Models/alignment_lab/.venv/lib/python3.11/site-packages/transformers/utils/hub.py", line 466, in cached_file
+    raise EnvironmentError(
+OSError: Incorrect path_or_model_id: 'artifacts/checkpoints/pa2_sft_hh_rlhf/final'. Please provide either the path to a local folder or the repo_id of a model on the Hub.
+experiment=pa2_ppo_hh_rlhf method=ppo dataset=hh_rlhf model=artifacts/checkpoints/pa2_sft_hh_rlhf/final

@@ -1,0 +1,18 @@
+name: pa2_rlvr_gsm8k
+model: pa2_sft_hh_rlhf_policy_checkpoint
+data: gsm8k
+method: rlvr
+reference_model: pa2_sft_hh_rlhf_reference_checkpoint
+overrides:
+  method:
+    rollout_batch_size: 1
+    group_size: 2
+    update_minibatch_size: 1
+    max_prompt_length: 256
+    max_response_length: 96
+    max_sequence_length: 384
+  generation:
+    max_new_tokens: 96
+    group_size: 2
+  evaluation:
+    kl_mode: full_vocab
