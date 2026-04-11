@@ -1,0 +1,8 @@
+{
+  "pass_at_1": 0.0,
+  "format_compliance_rate": 0.0,
+  "mean_response_length": 0.0,
+  "kl_from_reference": 0.0,
+  "kl_mode": "full_vocab",
+  "num_eval_prompts": 200
+}

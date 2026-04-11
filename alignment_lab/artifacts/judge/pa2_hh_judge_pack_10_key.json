@@ -1,0 +1,72 @@
+[
+  {
+    "prompt_id": "hh_01",
+    "response_a": "SFT",
+    "response_b": "PPO",
+    "response_c": "DPO",
+    "response_d": "GRPO"
+  },
+  {
+    "prompt_id": "hh_02",
+    "response_a": "PPO",
+    "response_b": "DPO",
+    "response_c": "SFT",
+    "response_d": "GRPO"
+  },
+  {
+    "prompt_id": "hh_03",
+    "response_a": "PPO",
+    "response_b": "SFT",
+    "response_c": "DPO",
+    "response_d": "GRPO"
+  },
+  {
+    "prompt_id": "hh_04",
+    "response_a": "GRPO",
+    "response_b": "SFT",
+    "response_c": "PPO",
+    "response_d": "DPO"
+  },
+  {
+    "prompt_id": "hh_05",
+    "response_a": "PPO",
+    "response_b": "DPO",
+    "response_c": "GRPO",
+    "response_d": "SFT"
+  },
+  {
+    "prompt_id": "hh_06",
+    "response_a": "SFT",
+    "response_b": "DPO",
+    "response_c": "PPO",
+    "response_d": "GRPO"
+  },
+  {
+    "prompt_id": "hh_07",
+    "response_a": "GRPO",
+    "response_b": "SFT",
+    "response_c": "PPO",
+    "response_d": "DPO"
+  },
+  {
+    "prompt_id": "hh_08",
+    "response_a": "GRPO",
+    "response_b": "DPO",
+    "response_c": "SFT",
+    "response_d": "PPO"
+  },
+  {
+    "prompt_id": "hh_09",
+    "response_a": "GRPO",
+    "response_b": "DPO",
+    "response_c": "PPO",
+    "response_d": "SFT"
+  },
+  {
+    "prompt_id": "hh_10",
+    "response_a": "DPO",
+    "response_b": "SFT",
+    "response_c": "PPO",
+    "response_d": "GRPO"
+  }
+]

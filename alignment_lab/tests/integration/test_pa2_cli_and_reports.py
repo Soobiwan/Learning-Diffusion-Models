@@ -6,6 +6,7 @@ import sys
 from types import SimpleNamespace
 
 from alignlab.cli import compare_pa2, setup_audit, train_online, train_sft
+from alignlab.common.config import load_experiment_config
 from alignlab.data.schemas import PreferenceExample, VerifiableExample
 from tests.helpers import DummyCausalLM, DummyTokenizer
 
@@ -138,6 +139,97 @@ def test_train_sft_logs_heldout_perplexity_and_samples(monkeypatch, tmp_path: Pa
     assert any(record["event"] == "sample_generation" for record in records)
 
 
+def test_train_sft_early_stopping_saves_best_checkpoint(monkeypatch, tmp_path: Path) -> None:
+    tokenizer = DummyTokenizer()
+    policy_bundle = SimpleNamespace(
+        model=DummyCausalLM(vocab_size=tokenizer.vocab_size + 8),
+        tokenizer=tokenizer,
+        spec=SimpleNamespace(),
+        parameter_summary={"trainable_parameters": 1, "total_parameters": 1},
+    )
+    log_path = tmp_path / "sft_early_stop.jsonl"
+    checkpoint_dir = tmp_path / "checkpoint_variants"
+    checkpoint_dir.mkdir(parents=True, exist_ok=True)
+    saved_variants: list[str] = []
+    perplexity_rows = iter(
+        [
+            {"heldout_loss": 2.0, "heldout_perplexity": 10.0, "num_eval_tokens": 8},
+            {"heldout_loss": 2.1, "heldout_perplexity": 10.1, "num_eval_tokens": 8},
+        ]
+    )
+
+    config = {
+        "experiment_name": "pa2_sft_early_stop_test",
+        "config_path": "unused",
+        "method": {
+            "name": "sft",
+            "train_batch_size": 1,
+            "learning_rate": 1.0e-3,
+            "max_sequence_length": 16,
+            "max_steps": 4,
+        },
+        "training": {"train_batch_size": 1, "eval_batch_size": 1, "learning_rate": 1.0e-3, "weight_decay": 0.0, "num_epochs": 1},
+        "tokenization": {"max_sequence_length": 16, "max_prompt_length": 16},
+        "generation": {"max_new_tokens": 1, "do_sample": False, "temperature": 1.0, "top_p": 1.0},
+        "evaluation": {
+            "num_eval_prompts": 1,
+            "sample_table_size": 1,
+            "sft_eval_every_steps": 1,
+            "sft_sample_every_steps": 0,
+            "early_stopping": {
+                "enabled": True,
+                "metric": "heldout_perplexity",
+                "mode": "min",
+                "min_delta": 0.0,
+                "min_delta_mode": "absolute",
+                "patience": 1,
+                "min_steps": 1,
+                "save_best": True,
+            },
+        },
+        "max_grad_norm": 1.0,
+        "dtype": "fp32",
+        "gradient_accumulation_steps": 1,
+        "model": {"hf_path": "dummy-policy", "family": "smollm", "dtype": "fp32"},
+        "data": {"adapter": "hh_rlhf"},
+        "reward_model": {"hf_path": str(tmp_path / "missing_reward"), "family": "llama"},
+    }
+    examples = [
+        PreferenceExample(prompt="Human: hello Assistant:", chosen="good", rejected="bad"),
+        PreferenceExample(prompt="Human: hello Assistant:", chosen="good", rejected="bad"),
+    ]
+
+    monkeypatch.setattr(train_sft, "resolve_config", lambda *args, **kwargs: config)
+    monkeypatch.setattr(train_sft, "load_training_examples", lambda cfg: examples)
+    monkeypatch.setattr(train_sft, "load_eval_examples", lambda cfg: examples)
+    monkeypatch.setattr(train_sft, "evaluate_sft_perplexity", lambda *args, **kwargs: next(perplexity_rows))
+    monkeypatch.setattr(train_sft, "experiment_log_path", lambda cfg: log_path)
+    monkeypatch.setattr(train_sft, "experiment_plot_path", lambda cfg, stem: tmp_path / "plot.png")
+    monkeypatch.setattr(train_sft, "experiment_table_path", lambda cfg, stem: tmp_path / f"{stem}.json")
+    monkeypatch.setattr(train_sft, "write_json", _write_json_file)
+    monkeypatch.setattr(train_sft, "plot_metric_curves", lambda *args, **kwargs: tmp_path / "plot.png")
+    monkeypatch.setattr(train_sft, "checkpoint_variant_dir", lambda cfg, artifact_name="final": checkpoint_dir / artifact_name)
+    monkeypatch.setattr(
+        train_sft,
+        "save_pretrained_artifact",
+        lambda *args, artifact_name="final", **kwargs: saved_variants.append(artifact_name) or (checkpoint_dir / artifact_name).mkdir(parents=True, exist_ok=True) or checkpoint_dir / artifact_name,
+    )
+    monkeypatch.setattr(
+        train_sft,
+        "promote_checkpoint_variant",
+        lambda *args, **kwargs: (checkpoint_dir / "final").mkdir(parents=True, exist_ok=True) or checkpoint_dir / "final",
+    )
+    monkeypatch.setattr("alignlab.models.policy.load_policy_bundle", lambda spec: policy_bundle)
+    monkeypatch.setattr(sys, "argv", ["train_sft", "--config", "unused"])
+
+    train_sft.main()
+
+    records = [json.loads(line) for line in log_path.read_text(encoding="utf-8").splitlines()]
+    assert any(record["event"] == "best_checkpoint" for record in records)
+    assert any(record["event"] == "early_stopping" for record in records)
+    assert "best" in saved_variants
+
+
 def test_train_online_logs_extractor_precheck(monkeypatch, tmp_path: Path) -> None:
     tokenizer = DummyTokenizer()
     policy_bundle = SimpleNamespace(model=DummyCausalLM(vocab_size=tokenizer.vocab_size + 8), tokenizer=tokenizer, spec=SimpleNamespace())
@@ -203,3 +295,23 @@ def test_train_online_logs_extractor_precheck(monkeypatch, tmp_path: Path) -> No
 
     records = [json.loads(line) for line in log_path.read_text(encoding="utf-8").splitlines()]
     assert any(record["event"] == "extractor_precheck" for record in records)
+
+
+def test_pa2_configs_reuse_archived_rm_and_subset_caps() -> None:
+    sft_config = load_experiment_config("configs/experiment/pa2_sft_hh_rlhf.yaml")
+    dpo_config = load_experiment_config("configs/experiment/pa2_dpo_hh_rlhf.yaml")
+    ppo_config = load_experiment_config("configs/experiment/pa2_ppo_hh_rlhf.yaml")
+    grpo_config = load_experiment_config("configs/experiment/pa2_grpo_hh_rlhf.yaml")
+    rlvr_config = load_experiment_config("configs/experiment/pa2_rlvr_gsm8k.yaml")
+
+    assert sft_config["reward_model"]["hf_path"] == "artifacts/checkpoints/rm_hh_rlhf/final"
+    assert sft_config["data"]["sample_limit"] == 20000
+    assert dpo_config["data"]["sample_limit"] == 20000
+    assert ppo_config["data"]["sample_limit"] == 20000
+    assert grpo_config["data"]["sample_limit"] == 20000
+    assert rlvr_config["data"]["sample_limit"] == 2000
+    assert sft_config["evaluation"]["early_stopping"]["metric"] == "heldout_perplexity"
+    assert dpo_config["evaluation"]["early_stopping"]["metric"] == "preference_accuracy"
+    assert ppo_config["evaluation"]["early_stopping"]["metric"] == "rm_win_rate_vs_sft"
+    assert grpo_config["evaluation"]["early_stopping"]["metric"] == "rm_win_rate_vs_sft"
+    assert rlvr_config["evaluation"]["early_stopping"]["metric"] == "pass_at_1"

@@ -4,7 +4,10 @@ data: gsm8k
 method: rlvr
 reference_model: pa2_sft_hh_rlhf_reference_checkpoint
 overrides:
+  data:
+    sample_limit: 2000
   method:
+    max_steps: 300
     rollout_batch_size: 1
     group_size: 2
     update_minibatch_size: 1
@@ -15,4 +18,15 @@ overrides:
     max_new_tokens: 96
     group_size: 2
   evaluation:
+    eval_every_steps: 50
     kl_mode: full_vocab
+    num_eval_prompts: 100
+    early_stopping:
+      enabled: true
+      metric: pass_at_1
+      mode: max
+      min_delta: 0.01
+      min_delta_mode: absolute
+      patience: 2
+      min_steps: 150
+      save_best: true

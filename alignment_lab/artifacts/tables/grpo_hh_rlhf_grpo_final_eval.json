@@ -1,0 +1,6 @@
+{
+  "rm_score_mean": 1.19287109375,
+  "rm_win_rate_vs_sft": 0.0,
+  "kl_from_reference": -5.6067792684189044e-05,
+  "num_eval_prompts": 4
+}

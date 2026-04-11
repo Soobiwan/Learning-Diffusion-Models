@@ -43,8 +43,8 @@ run_step() {
 }
 
 run_smoke() {
-  run_step "00_train_rm_smoke" \
-    "$PYTHON_BIN" -m alignlab.cli.train_rm --config configs/experiment/pa2_rm_hh_rlhf.yaml --sample-limit 32 --max-steps 2
+  run_step "00_confirm_archived_rm" \
+    "$PYTHON_BIN" -c 'import json, pathlib; ckpt = pathlib.Path("artifacts/checkpoints/rm_hh_rlhf/final"); summary = pathlib.Path("artifacts/tables/rm_hh_rlhf_rm_final_eval.json"); assert ckpt.exists(), f"Missing archived RM checkpoint: {ckpt}"; assert summary.exists(), f"Missing archived RM summary: {summary}"; payload = json.loads(summary.read_text(encoding="utf-8")); print({"checkpoint": str(ckpt), "preference_accuracy": payload.get("preference_accuracy"), "num_pairs": payload.get("num_pairs")})'
   run_step "01_train_sft_smoke" \
     "$PYTHON_BIN" -m alignlab.cli.train_sft --config configs/experiment/pa2_sft_hh_rlhf.yaml --sample-limit 32 --max-steps 2
   run_step "02_setup_audit" \
@@ -60,8 +60,8 @@ run_smoke() {
 }
 
 run_full() {
-  run_step "00_train_rm" \
-    "$PYTHON_BIN" -m alignlab.cli.train_rm --config configs/experiment/pa2_rm_hh_rlhf.yaml
+  run_step "00_confirm_archived_rm" \
+    "$PYTHON_BIN" -c 'import json, pathlib; ckpt = pathlib.Path("artifacts/checkpoints/rm_hh_rlhf/final"); summary = pathlib.Path("artifacts/tables/rm_hh_rlhf_rm_final_eval.json"); assert ckpt.exists(), f"Missing archived RM checkpoint: {ckpt}"; assert summary.exists(), f"Missing archived RM summary: {summary}"; payload = json.loads(summary.read_text(encoding="utf-8")); print({"checkpoint": str(ckpt), "preference_accuracy": payload.get("preference_accuracy"), "num_pairs": payload.get("num_pairs")})'
   run_step "01_train_sft" \
     "$PYTHON_BIN" -m alignlab.cli.train_sft --config configs/experiment/pa2_sft_hh_rlhf.yaml
   run_step "02_setup_audit" \

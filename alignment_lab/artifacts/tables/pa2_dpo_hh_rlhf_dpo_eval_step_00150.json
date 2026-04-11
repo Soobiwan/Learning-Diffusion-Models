@@ -1,0 +1,10 @@
+{
+  "rm_score_mean": -2.37984375,
+  "rm_win_rate_vs_sft": 0.5,
+  "kl_from_reference": 0.06935217139426242,
+  "kl_mode": "full_vocab",
+  "mean_response_length": 7.4,
+  "num_eval_prompts": 50,
+  "preference_accuracy": 0.5550000071525574,
+  "num_eval_pairs": 200
+}

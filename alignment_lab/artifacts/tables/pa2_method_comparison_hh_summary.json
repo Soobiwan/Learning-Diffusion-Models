@@ -1,0 +1,54 @@
+[
+  {
+    "method": "SFT",
+    "rm_score_mean": -2.367215881347656,
+    "rm_win_rate_vs_sft": 0.0,
+    "kl_from_reference": 7.293109930941799e-06,
+    "preference_accuracy": 0.550000011920929,
+    "mean_response_length": 35.295,
+    "experiment_name": "pa2_sft_hh_rlhf",
+    "peak_vram_gb": 5.697619915008545,
+    "step_time_seconds": 1.0064561465790758,
+    "total_time_seconds": 5427.814564278,
+    "num_recorded_steps": 2400
+  },
+  {
+    "method": "DPO",
+    "rm_score_mean": -2.2630517578125,
+    "rm_win_rate_vs_sft": 0.44999998807907104,
+    "kl_from_reference": 0.017889928343853483,
+    "preference_accuracy": 0.550000011920929,
+    "mean_response_length": 11.355,
+    "experiment_name": "pa2_dpo_hh_rlhf",
+    "peak_vram_gb": 5.040632724761963,
+    "step_time_seconds": 0.6586392001470143,
+    "total_time_seconds": 1159.2709505829844,
+    "num_recorded_steps": 201
+  },
+  {
+    "method": "PPO",
+    "rm_score_mean": -2.30989501953125,
+    "rm_win_rate_vs_sft": 0.4000000059604645,
+    "kl_from_reference": 0.012582455653636908,
+    "preference_accuracy": 0.5600000023841858,
+    "mean_response_length": 24.04,
+    "experiment_name": "pa2_ppo_hh_rlhf",
+    "peak_vram_gb": 4.368957996368408,
+    "step_time_seconds": 9.524499151353375,
+    "total_time_seconds": 4105.882802309003,
+    "num_recorded_steps": 300
+  },
+  {
+    "method": "GRPO",
+    "rm_score_mean": -1.7514920043945312,
+    "rm_win_rate_vs_sft": 0.6800000071525574,
+    "kl_from_reference": 0.024042799319012237,
+    "preference_accuracy": 0.5299999713897705,
+    "mean_response_length": 23.985,
+    "experiment_name": "pa2_grpo_hh_rlhf",
+    "peak_vram_gb": 2.3087868690490723,
+    "step_time_seconds": 4.77813046644694,
+    "total_time_seconds": 2669.733754866,
+    "num_recorded_steps": 300
+  }
+]

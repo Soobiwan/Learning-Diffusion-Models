@@ -1,0 +1,18 @@
+{
+  "peak_vram_gb": 4.29659366607666,
+  "step_time_seconds": 23.79109159501968,
+  "total_time_seconds": 27.46407875098521,
+  "num_recorded_steps": 1,
+  "final_evaluation": {
+    "pass_at_1": 0.0,
+    "format_compliance_rate": 0.0,
+    "mean_response_length": 0.0,
+    "kl_from_reference": 0.0,
+    "num_eval_prompts": 4,
+    "artifacts": {
+      "summary_json": "artifacts/tables/rlvr_gsm8k_rlvr_final_eval.json",
+      "json": "artifacts/samples/rlvr_gsm8k_rlvr_final_eval.json",
+      "csv": "artifacts/samples/rlvr_gsm8k_rlvr_final_eval.csv"
+    }
+  }
+}

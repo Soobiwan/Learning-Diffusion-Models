@@ -16,15 +16,15 @@ venv/
 
 # Artifacts
 artifacts/checkpoints/*
-artifacts/logs/*
-artifacts/samples/*
-artifacts/tables/*
-artifacts/plots/*
+#artifacts/logs/*
+#artifacts/samples/*
+#artifacts/tables/*
+#artifacts/plots/*
 !artifacts/checkpoints/.gitkeep
-!artifacts/logs/.gitkeep
-!artifacts/samples/.gitkeep
-!artifacts/tables/.gitkeep
-!artifacts/plots/.gitkeep
+#!artifacts/logs/.gitkeep
+#!artifacts/samples/.gitkeep
+#!artifacts/tables/.gitkeep
+#!artifacts/plots/.gitkeep
 
 # Editor
 .idea/

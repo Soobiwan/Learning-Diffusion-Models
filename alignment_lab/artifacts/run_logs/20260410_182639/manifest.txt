@@ -1,0 +1,16 @@
+run_id=20260410_182639
+mode=full
+root_dir=/media/fezan/ASi/DVLM/Learning-Diffusion-Models/alignment_lab
+python_bin=.venv/bin/python
+pytorch_cuda_alloc_conf=expandable_segments:True
+[2026-04-10 18:26:39] START 00_confirm_archived_rm
+command: .venv/bin/python -c import json, pathlib; ckpt = pathlib.Path("artifacts/checkpoints/rm_hh_rlhf/final"); summary = pathlib.Path("artifacts/tables/rm_hh_rlhf_rm_final_eval.json"); assert ckpt.exists(), f"Missing archived RM checkpoint: {ckpt}"; assert summary.exists(), f"Missing archived RM summary: {summary}"; payload = json.loads(summary.read_text(encoding="utf-8")); print({"checkpoint": str(ckpt), "preference_accuracy": payload.get("preference_accuracy"), "num_pairs": payload.get("num_pairs")})
+[2026-04-10 18:26:39] DONE 00_confirm_archived_rm log=artifacts/run_logs/20260410_182639/00_confirm_archived_rm.log
+[2026-04-10 18:26:39] START 01_train_sft
+command: .venv/bin/python -m alignlab.cli.train_sft --config configs/experiment/pa2_sft_hh_rlhf.yaml
+[2026-04-10 19:57:27] DONE 01_train_sft log=artifacts/run_logs/20260410_182639/01_train_sft.log
+[2026-04-10 19:57:27] START 02_setup_audit
+command: .venv/bin/python -m alignlab.cli.setup_audit --config configs/experiment/pa2_ppo_hh_rlhf.yaml
+[2026-04-10 19:58:01] DONE 02_setup_audit log=artifacts/run_logs/20260410_182639/02_setup_audit.log
+[2026-04-10 19:58:01] START 03_train_dpo
+command: .venv/bin/python -m alignlab.cli.train_pairwise --config configs/experiment/pa2_dpo_hh_rlhf.yaml

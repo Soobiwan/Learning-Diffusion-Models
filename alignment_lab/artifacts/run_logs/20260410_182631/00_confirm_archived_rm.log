@@ -1,0 +1,1 @@
+{'checkpoint': 'artifacts/checkpoints/rm_hh_rlhf/final', 'preference_accuracy': 0.5912067294120789, 'num_pairs': 8552}

@@ -1,0 +1,3 @@
+method,pass_at_1,format_compliance_rate,mean_response_length,kl_from_reference,experiment_name,peak_vram_gb,step_time_seconds,total_time_seconds,num_recorded_steps
+SFT,0.0,0.0,0.0,0.0,pa2_sft_hh_rlhf,5.697619915008545,1.0064561465790758,5427.814564278,2400
+RLVR,0.0,0.0,0.0,0.0,pa2_rlvr_gsm8k,1.1561760902404785,0.210207052542537,148.7235720109893,200

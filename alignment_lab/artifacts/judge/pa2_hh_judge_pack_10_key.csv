@@ -1,0 +1,11 @@
+prompt_id,response_a,response_b,response_c,response_d
+hh_01,SFT,PPO,DPO,GRPO
+hh_02,PPO,DPO,SFT,GRPO
+hh_03,PPO,SFT,DPO,GRPO
+hh_04,GRPO,SFT,PPO,DPO
+hh_05,PPO,DPO,GRPO,SFT
+hh_06,SFT,DPO,PPO,GRPO
+hh_07,GRPO,SFT,PPO,DPO
+hh_08,GRPO,DPO,SFT,PPO
+hh_09,GRPO,DPO,PPO,SFT
+hh_10,DPO,SFT,PPO,GRPO

@@ -4,5 +4,21 @@ data: hh_rlhf
 method: sft
 reward_model: pa2_rm_hh_rlhf_checkpoint
 overrides:
+  data:
+    sample_limit: 20000
+  method:
+    max_steps: 600
   evaluation:
     kl_mode: full_vocab
+    num_eval_prompts: 500
+    sft_eval_every_steps: 100
+    sft_sample_every_steps: 200
+    early_stopping:
+      enabled: true
+      metric: heldout_perplexity
+      mode: min
+      min_delta: 0.02
+      min_delta_mode: relative
+      patience: 3
+      min_steps: 200
+      save_best: true

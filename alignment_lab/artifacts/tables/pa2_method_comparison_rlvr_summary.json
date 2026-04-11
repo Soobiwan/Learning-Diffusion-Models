@@ -1,0 +1,26 @@
+[
+  {
+    "method": "SFT",
+    "pass_at_1": 0.0,
+    "format_compliance_rate": 0.0,
+    "mean_response_length": 0.0,
+    "kl_from_reference": 0.0,
+    "experiment_name": "pa2_sft_hh_rlhf",
+    "peak_vram_gb": 5.697619915008545,
+    "step_time_seconds": 1.0064561465790758,
+    "total_time_seconds": 5427.814564278,
+    "num_recorded_steps": 2400
+  },
+  {
+    "method": "RLVR",
+    "pass_at_1": 0.0,
+    "format_compliance_rate": 0.0,
+    "mean_response_length": 0.0,
+    "kl_from_reference": 0.0,
+    "experiment_name": "pa2_rlvr_gsm8k",
+    "peak_vram_gb": 1.1561760902404785,
+    "step_time_seconds": 0.210207052542537,
+    "total_time_seconds": 148.7235720109893,
+    "num_recorded_steps": 200
+  }
+]

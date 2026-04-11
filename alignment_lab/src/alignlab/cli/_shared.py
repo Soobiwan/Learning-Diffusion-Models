@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -183,6 +184,13 @@ def build_prompt_collator(tokenizer: Any, config: dict[str, Any]) -> PromptOnlyC
 def model_spec_from_config(config: dict[str, Any], key: str = "model") -> ModelSpec:
     """Build a `ModelSpec` from a config section."""
     return ModelSpec.from_dict(config[key])
+
+
+def model_spec_from_checkpoint(config: dict[str, Any], checkpoint_dir: str | Path, key: str = "model") -> ModelSpec:
+    """Build a `ModelSpec` that loads from a saved local checkpoint directory."""
+    checkpoint_path = Path(checkpoint_dir)
+    spec = model_spec_from_config(config, key)
+    return replace(spec, hf_path=str(checkpoint_path), tokenizer_path=str(checkpoint_path))
 
 
 def preference_examples(examples: list[Any]) -> list[PreferenceExample]:

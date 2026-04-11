@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import gc
 from pathlib import Path
 
+import torch
 from tqdm.auto import tqdm
 
 from ._shared import (
@@ -16,13 +18,15 @@ from ._shared import (
     load_eval_examples,
     load_training_examples,
     make_dataloader,
+    model_spec_from_checkpoint,
     model_spec_from_config,
     preference_examples,
     resolve_config,
     sft_examples,
     summarize_config,
 )
-from ..common.checkpointing import save_pretrained_artifact
+from ..common.checkpointing import checkpoint_variant_dir, promote_checkpoint_variant, save_pretrained_artifact
+from ..common.training_control import EarlyStopper
 from ..eval.pipeline import evaluate_hh_policy, evaluate_sft_perplexity
 from ..eval.reports import (
     ResourceTracker,
@@ -81,6 +85,7 @@ def main() -> None:
     greedy_generation_config["do_sample"] = False
     greedy_generation_config["temperature"] = 1.0
     greedy_generation_config["top_p"] = 1.0
+    early_stopper = EarlyStopper.from_config(config)
 
     stop_training = False
     for epoch in range(1, num_epochs + 1):
@@ -118,6 +123,42 @@ def main() -> None:
                     )
                     append_jsonl(log_path, {"event": "heldout_perplexity", "step": trainer.step, **perplexity_summary})
                     tqdm.write(f"heldout_step={trainer.step} metrics={perplexity_summary}")
+                    decision = early_stopper.update(trainer.step, perplexity_summary)
+                    if decision.should_save:
+                        best_dir = save_pretrained_artifact(
+                            bundle.model,
+                            bundle.tokenizer,
+                            config,
+                            artifact_name="best",
+                            extra_metadata={
+                                "task": "sft",
+                                "selection_metric": decision.metric,
+                                "selection_value": decision.value,
+                                "selection_step": trainer.step,
+                            },
+                        )
+                        best_record = {
+                            "event": "best_checkpoint",
+                            "step": trainer.step,
+                            "metric": decision.metric,
+                            "value": decision.value,
+                            "checkpoint_dir": str(best_dir),
+                        }
+                        append_jsonl(log_path, best_record)
+                        tqdm.write(f"best_checkpoint={best_record}")
+                    if decision.should_stop:
+                        stop_record = {
+                            "event": "early_stopping",
+                            "step": trainer.step,
+                            "metric": decision.metric,
+                            "best_value": decision.best_value,
+                            "best_step": decision.best_step,
+                            "bad_evals": decision.bad_evals,
+                        }
+                        append_jsonl(log_path, stop_record)
+                        tqdm.write(f"early_stopping={stop_record}")
+                        stop_training = True
+                        break
                 if sft_sample_every > 0 and trainer.step % sft_sample_every == 0 and sample_prompt_examples:
                     sample_batch = prompt_collator(sample_prompt_examples)
                     responses = trainer.sample_generations(
@@ -147,8 +188,25 @@ def main() -> None:
         train_rows.append(record)
         tqdm.write(f"step={trainer.step} metrics={last_metrics}")
 
-    tqdm.write("saving checkpoint...")
-    save_dir = save_pretrained_artifact(bundle.model, bundle.tokenizer, config, extra_metadata={"task": "sft"})
+    selected_checkpoint_dir = None
+    best_checkpoint_dir = checkpoint_variant_dir(config, "best")
+    if early_stopper.enabled and best_checkpoint_dir.exists():
+        tqdm.write("promoting best checkpoint...")
+        save_dir = promote_checkpoint_variant(
+            config,
+            source_name="best",
+            target_name="final",
+            extra_metadata={
+                "task": "sft",
+                "selection_metric": early_stopper.metric,
+                "selection_value": early_stopper.best_value,
+                "selection_step": early_stopper.best_step,
+            },
+        )
+        selected_checkpoint_dir = save_dir
+    else:
+        tqdm.write("saving checkpoint...")
+        save_dir = save_pretrained_artifact(bundle.model, bundle.tokenizer, config, extra_metadata={"task": "sft"})
     tqdm.write(f"saved_checkpoint={save_dir}")
 
     reward_summary = None
@@ -157,6 +215,14 @@ def main() -> None:
         reward_path = Path(reward_spec.hf_path)
         if reward_path.exists():
             tqdm.write("running final reward-model evaluation...")
+            selected_bundle = bundle
+            if selected_checkpoint_dir is not None:
+                del bundle
+                del trainer
+                gc.collect()
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+                selected_bundle = load_policy_bundle(model_spec_from_checkpoint(config, selected_checkpoint_dir))
             reward_bundle = load_reward_bundle(reward_spec, freeze=True)
             reward_function = LearnedRewardFunction(
                 model=reward_bundle.model,
@@ -165,14 +231,14 @@ def main() -> None:
             )
             reward_summary = evaluate_hh_policy(
                 config,
-                candidate_model=bundle.model,
-                candidate_tokenizer=bundle.tokenizer,
-                reference_model=bundle.model,
+                candidate_model=selected_bundle.model,
+                candidate_tokenizer=selected_bundle.tokenizer,
+                reference_model=selected_bundle.model,
                 reward_function=reward_function,
                 prompt_examples=eval_pref_examples,
                 pair_examples=None,
-                baseline_model=bundle.model,
-                baseline_tokenizer=bundle.tokenizer,
+                baseline_model=selected_bundle.model,
+                baseline_tokenizer=selected_bundle.tokenizer,
                 stem="sft_final_eval",
             )
             append_jsonl(log_path, {"event": "evaluation", "stage": "final", **reward_summary})
@@ -188,6 +254,10 @@ def main() -> None:
     resource_summary = tracker.summary()
     if reward_summary is not None:
         resource_summary["final_evaluation"] = reward_summary
+    resource_summary["checkpoint_selection"] = {
+        **early_stopper.summary(),
+        "selected_checkpoint_dir": str(save_dir),
+    }
     write_json(experiment_table_path(config, "resource_summary"), resource_summary)
 
 

@@ -1,0 +1,33 @@
+{
+  "peak_vram_gb": 5.697619915008545,
+  "step_time_seconds": 1.0064561465790758,
+  "total_time_seconds": 5427.814564278,
+  "num_recorded_steps": 2400,
+  "final_evaluation": {
+    "rm_score_mean": -2.4224244995117186,
+    "rm_win_rate_vs_sft": 0.0,
+    "kl_from_reference": 0.0,
+    "kl_mode": "full_vocab",
+    "mean_response_length": 35.14,
+    "num_eval_prompts": 500,
+    "artifacts": {
+      "summary_json": "artifacts/tables/pa2_sft_hh_rlhf_sft_final_eval.json",
+      "json": "artifacts/samples/pa2_sft_hh_rlhf_sft_final_eval.json",
+      "csv": "artifacts/samples/pa2_sft_hh_rlhf_sft_final_eval.csv"
+    }
+  },
+  "checkpoint_selection": {
+    "enabled": true,
+    "metric": "heldout_perplexity",
+    "mode": "min",
+    "min_delta": 0.02,
+    "min_delta_mode": "relative",
+    "patience": 3,
+    "min_steps": 200,
+    "save_best": true,
+    "best_value": 8.471578598022461,
+    "best_step": 400,
+    "bad_evals": 2,
+    "selected_checkpoint_dir": "artifacts/checkpoints/pa2_sft_hh_rlhf/final"
+  }
+}

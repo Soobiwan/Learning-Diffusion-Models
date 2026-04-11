@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import gc
+
 import torch
 from tqdm.auto import tqdm
 
@@ -16,13 +18,15 @@ from ._shared import (
     load_eval_examples,
     load_training_examples,
     make_dataloader,
+    model_spec_from_checkpoint,
     model_spec_from_config,
     preference_examples,
     require_checkpoint,
     resolve_config,
     summarize_config,
 )
-from ..common.checkpointing import save_pretrained_artifact
+from ..common.checkpointing import checkpoint_variant_dir, promote_checkpoint_variant, save_pretrained_artifact
+from ..common.training_control import EarlyStopper
 from ..eval.pipeline import evaluate_hh_policy
 from ..eval.reports import (
     ResourceTracker,
@@ -102,6 +106,7 @@ def main() -> None:
     tracker = ResourceTracker()
     train_rows: list[dict[str, float | int | str]] = []
     last_metrics: dict[str, float] | None = None
+    early_stopper = EarlyStopper.from_config(config)
 
     first_batch = next(iter(dataloader), None)
     if first_batch is not None:
@@ -155,6 +160,42 @@ def main() -> None:
                     )
                     append_jsonl(log_path, {"event": "evaluation", "step": trainer.step, **evaluation_summary})
                     tqdm.write(f"eval_step={trainer.step} metrics={evaluation_summary}")
+                    decision = early_stopper.update(trainer.step, evaluation_summary)
+                    if decision.should_save:
+                        best_dir = save_pretrained_artifact(
+                            policy_bundle.model,
+                            policy_bundle.tokenizer,
+                            config,
+                            artifact_name="best",
+                            extra_metadata={
+                                "task": config["method"]["name"],
+                                "selection_metric": decision.metric,
+                                "selection_value": decision.value,
+                                "selection_step": trainer.step,
+                            },
+                        )
+                        best_record = {
+                            "event": "best_checkpoint",
+                            "step": trainer.step,
+                            "metric": decision.metric,
+                            "value": decision.value,
+                            "checkpoint_dir": str(best_dir),
+                        }
+                        append_jsonl(log_path, best_record)
+                        tqdm.write(f"best_checkpoint={best_record}")
+                    if decision.should_stop:
+                        stop_record = {
+                            "event": "early_stopping",
+                            "step": trainer.step,
+                            "metric": decision.metric,
+                            "best_value": decision.best_value,
+                            "best_step": decision.best_step,
+                            "bad_evals": decision.bad_evals,
+                        }
+                        append_jsonl(log_path, stop_record)
+                        tqdm.write(f"early_stopping={stop_record}")
+                        stop_training = True
+                        break
                 if max_steps is not None and trainer.step >= max_steps:
                     stop_training = True
                     break
@@ -166,19 +207,44 @@ def main() -> None:
         append_jsonl(log_path, record)
         train_rows.append(record)
         tqdm.write(f"step={trainer.step} metrics={last_metrics}")
-    tqdm.write("saving checkpoint...")
-    save_dir = save_pretrained_artifact(
-        policy_bundle.model,
-        policy_bundle.tokenizer,
-        config,
-        extra_metadata={"task": config["method"]["name"]},
-    )
+    selected_checkpoint_dir = None
+    best_checkpoint_dir = checkpoint_variant_dir(config, "best")
+    if early_stopper.enabled and best_checkpoint_dir.exists():
+        tqdm.write("promoting best checkpoint...")
+        save_dir = promote_checkpoint_variant(
+            config,
+            source_name="best",
+            target_name="final",
+            extra_metadata={
+                "task": config["method"]["name"],
+                "selection_metric": early_stopper.metric,
+                "selection_value": early_stopper.best_value,
+                "selection_step": early_stopper.best_step,
+            },
+        )
+        selected_checkpoint_dir = save_dir
+    else:
+        tqdm.write("saving checkpoint...")
+        save_dir = save_pretrained_artifact(
+            policy_bundle.model,
+            policy_bundle.tokenizer,
+            config,
+            extra_metadata={"task": config["method"]["name"]},
+        )
     tqdm.write(f"saved_checkpoint={save_dir}")
     tqdm.write("running final evaluation...")
+    selected_bundle = policy_bundle
+    if selected_checkpoint_dir is not None:
+        del policy_bundle
+        del trainer
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        selected_bundle = load_policy_bundle(model_spec_from_checkpoint(config, selected_checkpoint_dir))
     evaluation_summary = evaluate_hh_policy(
         config,
-        candidate_model=policy_bundle.model,
-        candidate_tokenizer=policy_bundle.tokenizer,
+        candidate_model=selected_bundle.model,
+        candidate_tokenizer=selected_bundle.tokenizer,
         reference_model=reference_bundle.model,
         reward_function=reward_function,
         prompt_examples=eval_examples,
@@ -198,6 +264,10 @@ def main() -> None:
         )
     resource_summary = tracker.summary()
     resource_summary["final_evaluation"] = evaluation_summary
+    resource_summary["checkpoint_selection"] = {
+        **early_stopper.summary(),
+        "selected_checkpoint_dir": str(save_dir),
+    }
     write_json(experiment_table_path(config, "resource_summary"), resource_summary)
 
 

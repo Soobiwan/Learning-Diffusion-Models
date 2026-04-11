@@ -1,0 +1,17 @@
+{
+  "peak_vram_gb": 8.817379474639893,
+  "step_time_seconds": 4.749914717124587,
+  "total_time_seconds": 96927.87040769099,
+  "num_recorded_steps": 20100,
+  "final_evaluation": {
+    "preference_accuracy": 0.5912067294120789,
+    "mean_chosen_score": -0.6997655630111694,
+    "mean_rejected_score": -0.9817067980766296,
+    "num_pairs": 8552,
+    "artifacts": {
+      "summary_json": "artifacts/tables/rm_hh_rlhf_rm_final_eval.json",
+      "scores_csv": "artifacts/tables/rm_hh_rlhf_rm_final_eval.csv",
+      "histogram_png": "artifacts/plots/rm_hh_rlhf_rm_final_eval.png"
+    }
+  }
+}

@@ -6,7 +6,10 @@ reference_model: pa2_sft_hh_rlhf_reference_checkpoint
 reward_model: pa2_rm_hh_rlhf_checkpoint
 value_model: llama32_1b_value
 overrides:
+  data:
+    sample_limit: 20000
   method:
+    max_steps: 300
     rollout_batch_size: 1
     update_minibatch_size: 1
     max_prompt_length: 256
@@ -15,4 +18,15 @@ overrides:
   generation:
     max_new_tokens: 64
   evaluation:
+    eval_every_steps: 50
     kl_mode: full_vocab
+    num_eval_prompts: 50
+    early_stopping:
+      enabled: true
+      metric: rm_win_rate_vs_sft
+      mode: max
+      min_delta: 0.02
+      min_delta_mode: absolute
+      patience: 3
+      min_steps: 100
+      save_best: true

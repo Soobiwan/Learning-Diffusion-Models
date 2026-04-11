@@ -1,6 +1,6 @@
-hf_path: artifacts/checkpoints/pa2_rm_hh_rlhf/final
+hf_path: artifacts/checkpoints/rm_hh_rlhf/final
 family: llama
-tokenizer_path: artifacts/checkpoints/pa2_rm_hh_rlhf/final
+tokenizer_path: artifacts/checkpoints/rm_hh_rlhf/final
 lora_target_modules: []
 padding_side: right
 dtype: fp16

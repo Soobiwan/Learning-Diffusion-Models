@@ -5,5 +5,24 @@ method: dpo
 reference_model: pa2_sft_hh_rlhf_reference_checkpoint
 reward_model: pa2_rm_hh_rlhf_checkpoint
 overrides:
+  data:
+    sample_limit: 20000
+  method:
+    train_batch_size: 2
+    gradient_accumulation_steps: 1
+    max_sequence_length: 512
+    max_steps: 300
   evaluation:
+    eval_every_steps: 50
     kl_mode: full_vocab
+    num_eval_prompts: 50
+    num_eval_pairs: 200
+    early_stopping:
+      enabled: true
+      metric: preference_accuracy
+      mode: max
+      min_delta: 0.02
+      min_delta_mode: absolute
+      patience: 3
+      min_steps: 100
+      save_best: true

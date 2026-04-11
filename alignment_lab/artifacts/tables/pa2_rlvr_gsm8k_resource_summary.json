@@ -1,0 +1,33 @@
+{
+  "peak_vram_gb": 1.1561760902404785,
+  "step_time_seconds": 0.210207052542537,
+  "total_time_seconds": 148.7235720109893,
+  "num_recorded_steps": 200,
+  "final_evaluation": {
+    "pass_at_1": 0.0,
+    "format_compliance_rate": 0.0,
+    "mean_response_length": 0.0,
+    "kl_from_reference": 0.0,
+    "kl_mode": "full_vocab",
+    "num_eval_prompts": 100,
+    "artifacts": {
+      "summary_json": "artifacts/tables/pa2_rlvr_gsm8k_rlvr_final_eval.json",
+      "json": "artifacts/samples/pa2_rlvr_gsm8k_rlvr_final_eval.json",
+      "csv": "artifacts/samples/pa2_rlvr_gsm8k_rlvr_final_eval.csv"
+    }
+  },
+  "checkpoint_selection": {
+    "enabled": true,
+    "metric": "pass_at_1",
+    "mode": "max",
+    "min_delta": 0.01,
+    "min_delta_mode": "absolute",
+    "patience": 2,
+    "min_steps": 150,
+    "save_best": true,
+    "best_value": 0.0,
+    "best_step": 50,
+    "bad_evals": 2,
+    "selected_checkpoint_dir": "artifacts/checkpoints/pa2_rlvr_gsm8k/final"
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "peak_vram_gb": 5.040632724761963,
+  "step_time_seconds": 0.6591294464663289,
+  "total_time_seconds": 262.8906005680328,
+  "num_recorded_steps": 101,
+  "final_evaluation": {
+    "rm_score_mean": -2.372109375,
+    "rm_win_rate_vs_sft": 0.46000000834465027,
+    "kl_from_reference": 0.044884226877580986,
+    "kl_mode": "full_vocab",
+    "mean_response_length": 8.66,
+    "num_eval_prompts": 50,
+    "preference_accuracy": 0.550000011920929,
+    "num_eval_pairs": 200,
+    "artifacts": {
+      "summary_json": "artifacts/tables/pa2_dpo_beta_010_dpo_final_eval.json",
+      "json": "artifacts/samples/pa2_dpo_beta_010_dpo_final_eval.json",
+      "csv": "artifacts/samples/pa2_dpo_beta_010_dpo_final_eval.csv"
+    }
+  },
+  "checkpoint_selection": {
+    "enabled": false,
+    "metric": "",
+    "mode": "max",
+    "min_delta": 0.0,
+    "min_delta_mode": "absolute",
+    "patience": 0,
+    "min_steps": 0,
+    "save_best": true,
+    "best_value": null,
+    "best_step": null,
+    "bad_evals": 0,
+    "selected_checkpoint_dir": "artifacts/checkpoints/pa2_dpo_beta_010/final"
+  }
+}

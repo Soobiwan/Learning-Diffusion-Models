@@ -3,5 +3,7 @@ model: llama32_1b_reward
 data: hh_rlhf
 method: reward_model
 overrides:
+  method:
+    max_steps: 1000
   evaluation:
     kl_mode: full_vocab
