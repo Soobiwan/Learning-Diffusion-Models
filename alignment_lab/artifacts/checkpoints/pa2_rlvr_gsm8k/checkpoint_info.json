@@ -1,0 +1,11 @@
+{
+  "experiment_name": "pa2_rlvr_gsm8k",
+  "checkpoint_dir": "artifacts/checkpoints/pa2_rlvr_gsm8k/final",
+  "source_config": "/media/fezan/ASi/DVLM/Learning-Diffusion-Models/alignment_lab/configs/experiment/pa2_rlvr_gsm8k.yaml",
+  "artifact_name": "final",
+  "promoted_from": "artifacts/checkpoints/pa2_rlvr_gsm8k/best",
+  "task": "rlvr",
+  "selection_metric": "pass_at_1",
+  "selection_value": 0.0,
+  "selection_step": 50
+}

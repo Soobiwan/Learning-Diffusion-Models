@@ -1,0 +1,11 @@
+{
+  "experiment_name": "pa2_dpo_hh_rlhf",
+  "checkpoint_dir": "artifacts/checkpoints/pa2_dpo_hh_rlhf/final",
+  "source_config": "/media/fezan/ASi/DVLM/Learning-Diffusion-Models/alignment_lab/configs/experiment/pa2_dpo_hh_rlhf.yaml",
+  "artifact_name": "final",
+  "promoted_from": "artifacts/checkpoints/pa2_dpo_hh_rlhf/best",
+  "task": "dpo",
+  "selection_metric": "preference_accuracy",
+  "selection_value": 0.550000011920929,
+  "selection_step": 50
+}

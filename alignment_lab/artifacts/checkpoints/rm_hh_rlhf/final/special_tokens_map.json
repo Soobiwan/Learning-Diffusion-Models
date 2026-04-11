@@ -1,0 +1,11 @@
+{
+  "bos_token": {
+    "content": "<|begin_of_text|>",
+    "lstrip": false,
+    "normalized": false,
+    "rstrip": false,
+    "single_word": false
+  },
+  "eos_token": "<|eot_id|>",
+  "pad_token": "<|eot_id|>"
+}

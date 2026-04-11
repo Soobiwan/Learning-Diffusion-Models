@@ -5,6 +5,8 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 .coverage
+.safetensors
+
 
 # Virtual environments
 .venv/
@@ -15,12 +17,12 @@ venv/
 .hf_cache/
 
 # Artifacts
-artifacts/checkpoints/*
+#artifacts/checkpoints/*
 #artifacts/logs/*
 #artifacts/samples/*
 #artifacts/tables/*
 #artifacts/plots/*
-!artifacts/checkpoints/.gitkeep
+#!artifacts/checkpoints/.gitkeep
 #!artifacts/logs/.gitkeep
 #!artifacts/samples/.gitkeep
 #!artifacts/tables/.gitkeep

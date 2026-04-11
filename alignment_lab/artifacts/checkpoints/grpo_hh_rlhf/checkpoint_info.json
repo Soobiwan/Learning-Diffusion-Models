@@ -1,0 +1,6 @@
+{
+  "experiment_name": "grpo_hh_rlhf",
+  "checkpoint_dir": "artifacts/checkpoints/grpo_hh_rlhf/final",
+  "source_config": "/media/fezan/ASi/DVLM/Learning-Diffusion-Models/alignment_lab/configs/experiment/grpo_hh_rlhf.yaml",
+  "task": "grpo"
+}

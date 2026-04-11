@@ -1,0 +1,11 @@
+{
+  "experiment_name": "pa2_sft_hh_rlhf",
+  "checkpoint_dir": "artifacts/checkpoints/pa2_sft_hh_rlhf/final",
+  "source_config": "/media/fezan/ASi/DVLM/Learning-Diffusion-Models/alignment_lab/configs/experiment/pa2_sft_hh_rlhf.yaml",
+  "artifact_name": "final",
+  "promoted_from": "artifacts/checkpoints/pa2_sft_hh_rlhf/best",
+  "task": "sft",
+  "selection_metric": "heldout_perplexity",
+  "selection_value": 8.471578598022461,
+  "selection_step": 400
+}

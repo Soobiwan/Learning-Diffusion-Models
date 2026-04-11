@@ -1,0 +1,7 @@
+{
+  "experiment_name": "pa2_dpo_beta_050",
+  "checkpoint_dir": "artifacts/checkpoints/pa2_dpo_beta_050/final",
+  "source_config": "/media/fezan/ASi/DVLM/Learning-Diffusion-Models/alignment_lab/configs/experiment/pa2_dpo_beta_050.yaml",
+  "artifact_name": "final",
+  "task": "dpo"
+}

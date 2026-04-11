@@ -1,0 +1,6 @@
+{
+  "experiment_name": "ppo_hh_rlhf",
+  "checkpoint_dir": "artifacts/checkpoints/ppo_hh_rlhf/final",
+  "source_config": "/media/fezan/ASi/DVLM/Learning-Diffusion-Models/alignment_lab/configs/experiment/ppo_hh_rlhf.yaml",
+  "task": "ppo"
+}

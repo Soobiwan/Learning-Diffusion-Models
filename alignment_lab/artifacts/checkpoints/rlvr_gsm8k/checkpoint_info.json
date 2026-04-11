@@ -1,0 +1,6 @@
+{
+  "experiment_name": "rlvr_gsm8k",
+  "checkpoint_dir": "artifacts/checkpoints/rlvr_gsm8k/final",
+  "source_config": "/media/fezan/ASi/DVLM/Learning-Diffusion-Models/alignment_lab/configs/experiment/rlvr_gsm8k.yaml",
+  "task": "rlvr"
+}
