@@ -1,0 +1,13 @@
+Spatial coherence note: the LM predicts the 4x4 image code map as a 1D raster sequence, so horizontal neighbors are always adjacent in context but vertical neighbors are separated by row length. Failures often show row-wise discontinuities or repeated local motifs.
+
+When generations fail, compare their repeated IDs against the VQ-VAE usage histogram and cosine heatmap: dead or near-duplicate codes usually decode to washed-out patches and make the LM's token choices less spatially meaningful.
+
+
+
+prompt=Draw a 16 by 16 spiral.
+TOP5_FIRST_VISUAL=[('<vis_208>', 29.53125), ('<vis_228>', 29.125), ('<vis_159>', 28.859375), ('<vis_212>', 22.96875), ('<vis_151>', 21.859375)]
+ids=[159, 55, 17, 74, 174, 236, 114, 144, 8, 167, 178, 5, 223, 207, 180, 71]
+
+prompt=Generate a tiny spiral image.
+TOP5_FIRST_VISUAL=[('<vis_208>', 29.078125), ('<vis_228>', 28.8125), ('<vis_159>', 28.515625), ('<vis_212>', 22.625), ('<vis_156>', 21.390625)]
+ids=[228, 55, 17, 74, 174, 91, 114, 92, 131, 200, 178, 173, 40, 31, 21, 71]

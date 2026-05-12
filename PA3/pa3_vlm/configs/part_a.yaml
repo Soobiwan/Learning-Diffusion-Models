@@ -1,0 +1,28 @@
+seed: 42
+lm_name: HuggingFaceTB/SmolLM2-360M-Instruct
+clip_name: openai/clip-vit-base-patch32
+data_root: ./data
+weights_dir: weights
+outputs_dir: outputs
+max_length: 192
+cache_clip_patches: true
+clip_cache_batch_size: 128
+phase1:
+  epochs: 1
+  batch_size: 16
+  lr: 0.0003
+phase2:
+  epochs: 1
+  batch_size: 16
+  grad_accum: 8
+  lr: 0.0005
+  lambda_replay: 0.2
+  lambda_sweep: [0.0, 0.05, 0.2, 0.5]
+phase3:
+  epochs: 1
+  batch_size: 16
+  grad_accum: 8
+  lr: 0.0002
+eval:
+  max_new_tokens: 8
+  ppl_n: 100

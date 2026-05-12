@@ -1,0 +1,5 @@
+K,256
+beta,0.25
+ema,False
+best_val_loss,0.007044018956979639
+best_epoch,79

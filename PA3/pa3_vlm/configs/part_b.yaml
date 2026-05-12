@@ -1,0 +1,23 @@
+seed: 42
+lm_name: HuggingFaceTB/SmolLM2-360M-Instruct
+weights_dir: weights
+outputs_dir: outputs
+max_length: 192
+vqvae:
+  n_per_class: 1000
+  epochs: 80
+  batch_size: 64
+  lr: 0.0003
+  codebook_size: 256
+  beta: 0.25
+  ema: false
+lm:
+  epochs: 3
+  batch_size: 16
+  grad_accum: 4
+  lambda_replay: 0.2
+  gamma_img: 0.5
+  lora_lr: 0.0005
+  overlay_lr: 0.00005
+eval:
+  ppl_n: 100

@@ -1,0 +1,5 @@
+config,K,beta,ema,best_val_loss,best_epoch,checkpoint
+baseline,256,0.25,False,0.007044018956979639,79,weights/vqvae_baseline.pt
+K128,128,0.25,False,0.009379837465913672,78,weights/vqvae_K128.pt
+beta1,256,1.0,False,0.0038585254898000705,78,weights/vqvae_beta1.pt
+ema,256,0.25,True,0.0072283285277846615,75,weights/vqvae_ema.pt

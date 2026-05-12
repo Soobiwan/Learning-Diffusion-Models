@@ -1,0 +1,41 @@
+type=correct_easy
+idx=1
+Q=Is there a automobile?
+GT=yes
+PRED=yes
+TOP5=[('yes', 24.96875), ('no', 20.546875), ('vehicle', 16.5625), (' Yes', 15.21875), (' yes', 14.421875)]
+
+type=correct_easy
+idx=4
+Q=Is this an animal?
+GT=no
+PRED=no
+TOP5=[('no', 25.75), ('yes', 19.40625), (' no', 18.21875), ('plane', 14.0625), ('cat', 13.859375)]
+
+type=correct_hard
+idx=0
+Q=What object is shown?
+GT=automobile
+PRED=automobile
+TOP5=[('autom', 24.515625), ('t', 19.5), ('Autom', 17.421875), ('ship', 16.03125), ('air', 15.6015625)]
+
+type=correct_hard
+idx=2
+Q=Vehicle or living thing?
+GT=vehicle
+PRED=vehicle
+TOP5=[('vehicle', 28.65625), (' vehicle', 20.5625), ('living', 19.90625), (' Vehicle', 18.4375), ('v', 17.890625)]
+
+type=failure
+idx=20
+Q=What object is shown?
+GT=deer
+PRED=frog
+TOP5=[('f', 19.515625), ('de', 18.953125), ('cat', 18.65625), ('bird', 18.484375), ('dog', 16.890625)]
+
+type=failure
+idx=30
+Q=What object is shown?
+GT=cat
+PRED=frog
+TOP5=[('f', 21.359375), ('cat', 20.640625), ('de', 18.203125), ('dog', 18.171875), ('bird', 16.515625)]

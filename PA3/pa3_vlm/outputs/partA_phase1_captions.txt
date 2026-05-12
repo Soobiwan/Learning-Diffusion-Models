@@ -1,0 +1,14 @@
+GT: A small photo of a automobile.
+GEN: the sametsets T T T T T T T T T T T T T T T T T T T
+
+GT: This image contains a ship.
+GEN: the same times of the the the the the the the the the the the the the the the the the the the
+
+GT: A low-resolution picture showing a bird.
+GEN: the same the same the S the S the S the S the S the S the S the S the S the
+
+GT: The main object is a frog.
+GEN: the same  the same  the  the  the  the  the  the  the  the  the
+
+GT: A CIFAR-10 example of a deer.
+GEN: the same the same the S the S the S the S the S the S the S the S the S the

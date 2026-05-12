@@ -1,0 +1,1432 @@
+Vision Language Models
+AI623 - Programming Assignment 3
+
+This assignment is not graded and has no deliverables. There is no submission for this assignment,
+and no marks are awarded for producing code, plots, or results. Instead, the assessment of the PA
+content will occur through two separate components:
+• a viva (oral examination), and
+• a written test (a short quiz).
+The purpose of this assignment is therefore preparatory: it is a structured way to build the understanding and implementation intuition that you will be asked to demonstrate in the viva and
+written test. Please aim to complete this assignment by 30th April 2026.
+Maintain a working document (strongly encouraged). Even though nothing is submitted,
+you are strongly encouraged to maintain a “working document” (notes + screenshots + plots +
+short explanations) as you progress.
+Structure of this assignment. The assignment covers two complementary approaches to connecting visual and language representations:
+• Part A (Continuous connector VLMs): A frozen CLIP vision encoder feeds patch tokens
+through a learned connector into a pretrained LM. Dataset: CIFAR-10 subset.
+• Part B (Discrete VQ-VAE): A VQ-VAE compresses synthetic images into discrete codebook
+indices appended directly to the LM’s vocabulary. The LM handles vision and language in a
+single unified token stream. Dataset: procedurally generated synthetic images.
+Required reading. Work through Section 2.3 before attempting any task.
+
+1
+
+Contents
+1 Allowed Tools and Constraints
+
+3
+
+2 Background and Notation
+2.1 Notation Dictionary . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+2.2 The Two Architectures at a Glance . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+2.3 Resources . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+
+4
+4
+4
+5
+
+3 Analytical Problems
+3.1 Problem 0: CLIP and SigLIP . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+3.2 Problem 1: VLM Objectives and Connector Design . . . . . . . . . . . . . . . . . . .
+3.3 Problem 2: VQ-VAE Theory . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+3.4 Problem 3: Unified Vocabulary and Token Sequences (Part B) . . . . . . . . . . . .
+3.5 Problem 4: Catastrophic Forgetting and Mixed Objectives . . . . . . . . . . . . . . .
+3.6 Problem 5: Modality Gap and Cross-Architecture Comparison . . . . . . . . . . . .
+
+6
+6
+9
+10
+11
+12
+12
+
+Coding: Part A — Continuous Connector VLMs
+
+14
+
+4 Coding Tasks — Part A
+4.1 Dataset: CIFAR-10 Subset . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+4.2 Task A-C0: Data Pipeline and Model Loading . . . . . . . . . . . . . . . . . . . . . .
+4.3 Task A-C1: Phase 1 — Connector Initialisation . . . . . . . . . . . . . . . . . . . . .
+4.4 Task A-C2: Phase 2 — SFT with Language Replay . . . . . . . . . . . . . . . . . . .
+4.5 Task A-C3: Phase 3 — VQA Alignment . . . . . . . . . . . . . . . . . . . . . . . . .
+4.6 Task A-C4: Evaluation . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+4.7 Task A-C5: Modality Gap Analysis . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+4.8 Task A-C6: Ablations (choose ≥ 1) . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+
+14
+14
+14
+15
+16
+16
+16
+17
+17
+
+Coding: Part B — Discrete VQ-VAE
+
+18
+
+5 Coding Tasks — Part B
+5.1 Dataset: Synthetic Images . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+5.2 Task B-C0: Dataset Generation and Model Loading . . . . . . . . . . . . . . . . . .
+5.3 Task B-C1: VQ-VAE Training and Codebook Analysis . . . . . . . . . . . . . . . . .
+5.4 Task B-C2: Vocabulary Expansion . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+5.5 Task B-C3: Tokenisation Pipeline . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+5.6 Task B-C4: Mixed-Objective Fine-Tuning . . . . . . . . . . . . . . . . . . . . . . . .
+5.7 Task B-C5: Evaluation . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+5.8 Task B-C6: Focused Ablations (choose ≥ 1) . . . . . . . . . . . . . . . . . . . . . . .
+
+18
+18
+19
+19
+21
+21
+22
+23
+24
+
+Appendix
+
+25
+
+2
+
+1
+
+Allowed Tools and Constraints
+• Permitted libraries: PyTorch, HuggingFace transformers, peft (LoRA), accelerate,
+datasets (Alpaca), torchvision (CIFAR-10), and standard scientific Python (numpy, matplotlib,
+scikit-learn).
+• Not permitted: any library providing a ready-made VLM trainer, VQ-VAE, or multimodal
+training loop.
+• Implement from scratch (Part A): the MLP connector architecture; all training phases;
+the mixed objective with Alpaca replay; all metrics. (Q-Former and gated cross-attention are
+covered analytically in Problem 1.2.)
+• Implement from scratch (Part B): the VQ-VAE (encoder, vector quantiser with gradient
+and EMA modes plus dead-code restart, decoder); vocabulary-expansion and embeddingoverlay logic; mixed-objective training loop; all evaluation metrics.
+• Language model (both parts): HuggingFaceTB/SmolLM2-360M-Instruct (360 M params,
+dLM = 960, 49 152 vocabulary tokens, 24 layers). Load in float16; use mixed-precision
+training (GradScaler).
+• Vision encoder (Part A only): openai/clip-vit-base-patch32, frozen. Extract last hidden state
+patch tokens Z ∈ R49×768 (discard CLS at index 0).
+• LoRA configuration (both parts): r = 16, α = 32, targets q proj, k proj, v proj,
+o proj, dropout 0.05.
+• Text-replay dataset (both parts): 1 000 examples from tatsu-lab/alpaca. Mandatory
+for all mixed-training runs. Compute baseline perplexity PPL0 before any fine-tuning.
+
+3
+
+2
+
+Background and Notation
+
+2.1
+
+Notation Dictionary
+Symbol
+
+Meaning
+
+Shared
+dLM = 960
+
+SmolLM2-360M hidden dimension
+
+Vtxt = 49 152
+
+Original LM vocabulary size
+
+r
+
+LoRA rank (default 16)
+
+λ
+
+Language-replay loss weight
+
+R
+
+Forgetting ratio: PPLfine /PPL0
+
+Part A — Continuous connector
+xv ∈ RH×W ×3
+
+Input image (CIFAR-10, 32 × 32)
+
+Z ∈ R49×768
+
+CLIP patch tokens (dv = 768, CLS discarded)
+
+V ∈ RM ×dLM
+
+Visual tokens after connector (M ≤ 49)
+
+ΘC
+
+Connector parameters
+
+rnorm
+
+Norm ratio: E∥Vi ∥2 /E∥Tj ∥2
+
+MG
+
+Modality gap on unit sphere ∈ [0, 2]
+
+Part B — Discrete VQ-VAE
+
+2.2
+
+x ∈ R16×16×3
+
+Synthetic input image
+
+ze = Eϕ (x) ∈ R4×4×64
+64
+C = {ek }K
+k=1 , ek ∈ R
+
+Pre-quantisation encoder output
+
+zq = Q(ze )
+
+Quantised latent (nearest-neighbour lookup)
+
+x̂ = Dψ (zq )
+
+Decoded reconstruction
+
+β
+
+Commitment-loss weight
+
+γimg
+
+Image-generation loss weight
+
+VQ-VAE codebook (K = 256)
+
+The Two Architectures at a Glance
+Part A (Continuous)
+
+Part B (Discrete)
+
+Vision encoder
+
+CLIP ViT-B/32 (pretrained, frozen)
+
+VQ-VAE encoder (trained from scratch)
+
+Visual repr.
+
+Continuous embedding V ∈ RM ×960
+
+Discrete token IDs ∈ {1, . . . , K}
+
+LM interface
+
+inputs embeds concatenation
+
+Vocabulary expansion + input ids
+
+Reconstruction
+
+Not possible
+
+Yes, via VQ-VAE decoder
+
+4
+
+2.3
+
+Resources
+
+Core Papers
+1. LLaVA — Liu et al., “Visual Instruction Tuning”, NeurIPS 2023.
+2. BLIP-2 — Li et al., “BLIP-2”, ICML 2023.
+3. Flamingo — Alayrac et al., “Flamingo”, NeurIPS 2022.
+4. VQ-VAE — van den Oord et al., “Neural Discrete Representation Learning”, NeurIPS 2017.
+5. VQ-GAN — Esser et al., “Taming Transformers”, CVPR 2021.
+6. Chameleon — Team Chameleon, arXiv 2024.
+7. LoRA — Hu et al., ICLR 2022.
+8. Modality gap — Liang et al., NeurIPS 2022.
+9. CLIP — Radford et al., ICML 2021.
+Background Reading
+1. HuggingFace, “Vision Language Models Explained”
+2. CLIP model documentation
+3. HuggingFace PEFT: LoRA configuration
+4. SmolLM2-360M-Instruct model card
+
+5
+
+3
+
+Analytical Problems
+
+Complete all problems below before starting any coding task. Problem 0 covers CLIP and SigLIP
+foundations; Problems 1–2 address Part A (continuous connectors) and Part B (VQ-VAE) respectively; Problem 3 covers vocabulary expansion and positional encoding (Part B); Problems 4–5
+span both parts (forgetting and modality gap).
+
+3.1
+
+Problem 0: CLIP and SigLIP
+
+CLIP and SigLIP are contrastive vision-language models. They do not reconstruct images, and,
+as standalone vision-language encoders, they do not represent images as discrete token sequences
+inside an autoregressive language model. Instead, they learn two encoders, an image encoder and
+a text encoder, whose outputs are mapped into a shared embedding space. Matching image-text
+pairs should have high similarity, while non-matching pairs should have low similarity. This makes
+them fundamentally different from the VQ-VAE+LM pipeline in this assignment: CLIP/SigLIP are
+optimised primarily for alignment and retrieval-style discrimination, whereas the toy multimodal
+LM here is built around discrete visual tokens and autoregressive generation.
+Let an image encoder produce ui ∈ Rm and a text encoder produce vi ∈ Rm for the ith matched
+image-caption pair in a batch of size B. Assume both are ℓ2 -normalised:
+∥ui ∥2 = ∥vi ∥2 = 1,
+so that similarity is cosine similarity:
+sij = u⊤
+i vj ∈ [−1, 1].
+CLIP uses a softmax-normalised contrastive objective over the full batch, while SigLIP replaces
+this with a pairwise sigmoid-style objective. The difference appears small at first glance, but it
+changes the role of negatives, the effect of batch size, and the geometry of the learned embedding
+space.
+Problem C.1 (CLIP objective and the role of in-batch negatives)
+CLIP uses a symmetric image-to-text and text-to-image contrastive loss. With temperature
+parameter τ > 0, define logits
+u⊤ vj
+ℓij = i .
+τ
+The CLIP loss for one batch is:
+"
+!
+!#
+B
+B
+1 1 X
+exp(ℓii )
+1 X
+exp(ℓii )
+LCLIP =
+− log PB
++
+− log PB
+.
+(C1)
+2 B
+B
+j=1 exp(ℓij )
+j=1 exp(ℓji )
+i=1
+
+i=1
+
+(a) Consider only the image-to-text term for a fixed image ui :
+exp(ℓii )
+(i)
+LI→T = − log PB
+.
+j=1 exp(ℓij )
+Show that minimising this loss encourages ℓii to increase relative to ℓij for all j ̸= i.
+Explain carefully why the other captions in the same batch behave as implicit negatives
+even though no explicit negative labels were provided.
+
+6
+
+(b) Derive the softmax probability
+exp(ℓij )
+pij = PB
+k=1 exp(ℓik )
+and show that
+
+(i)
+
+∂LI→T
+= pij − 1{j = i}.
+∂ℓij
+Interpret this gradient for the positive pair (i, i) and for a negative pair (i, j), j ̸= i.
+(c) The temperature τ scales all logits. Explain analytically what happens as τ → 0 and
+as τ → ∞:
+• how does the softmax distribution over captions change,
+• what happens to gradient concentration,
+• and why can too-small τ make optimisation overly sharp or unstable?
+In your answer, be explicit about the fact that ℓij = (u⊤
+i vj )/τ rescales the underlying
+similarities.
+(d) CLIP performance often improves with larger batch sizes. Give a precise explanation in
+terms of (C1): why does increasing B generally create a harder discrimination problem,
+and why can that lead to more semantically structured embeddings?
+(e) Analyse. Suppose two captions in the same batch both correctly describe the same
+image (for example, paraphrases). Under the CLIP loss, one of them is treated as the
+positive and the other as a negative. Explain why this creates false negatives. What
+kind of semantic distortion can this induce in the shared embedding space?
+Problem C.2 (A simplified SigLIP-style objective and how it differs from CLIP)
+SigLIP replaces the batch-softmax objective with a pairwise sigmoid-style objective. In a
+simplified form, let yij = 1 if (i, j) is a matched pair and yij = −1 otherwise. For logits
+ℓij = u⊤
+i vj /τ , consider the loss
+B
+
+LSigLIP =
+
+B
+
+1 XX
+log(1 + exp(−yij ℓij )) .
+B2
+
+(C2)
+
+i=1 j=1
+
+This captures the key distinction from CLIP: each pair contributes its own sigmoid-based
+term rather than competing through one shared softmax denominator. Equivalently, positive pairs are pushed toward large logits and negative pairs toward small logits through a
+sigmoid/BCE-style objective.
+(a) Show that for a positive pair (i, i), the loss contribution is
+log(1 + exp(−ℓii )),
+while for a negative pair (i, j), j ̸= i, it is
+log(1 + exp(ℓij )).
+
+7
+
+Explain why this means each pair contributes its own loss term, unlike CLIP where
+all captions for a given image compete through one softmax denominator. Be precise
+about the sense in which this is “independent.”
+(b) Compute the derivative of one pairwise term
+log(1 + exp(−yℓ))
+with respect to ℓ, and interpret its sign for y = 1 and y = −1. Why does this objective
+still encourage alignment of matched pairs and separation of mismatched pairs?
+(c) Compare CLIP and the simplified SigLIP-style objective along the following axes:
+i. dependence on batch size,
+ii. sensitivity to false negatives,
+iii. whether similarities for one image must sum to a probability distribution over the
+batch,
+iv. ease of handling more than one correct caption per image.
+Your answer should be analytical, not merely descriptive.
+(d) In CLIP, increasing the score of one negative pair necessarily changes the relative probabilities of all pairs through the softmax normalisation. In the sigmoid-style objective
+(C2), this coupling is weaker. Explain why this can make training more stable when
+batch composition is noisy or semantically ambiguous.
+(e) Analyse. For very large-scale training, one may want the model to learn from many
+weakly related image-text pairs scraped from the web. Argue which of CLIP or a
+sigmoid-style objective such as (C2) is better suited to such data. Your answer should
+explicitly discuss label noise, multiple plausible positives, and the distinction between
+relative ranking and absolute pair scoring.
+Problem C.3 (Geometry of the shared space and implications for this assignment)
+Because ui and vj are normalised, both CLIP and sigmoid-style vision-language objectives
+operate on the unit sphere in Rm . They do not ask the model to preserve pixel-level information. Instead, they ask the model to preserve semantic relations relevant to matching
+language with images.
+(a) Explain why a contrastive objective encourages semantic invariance. For example, two
+images of the same object under different lighting or background conditions may be
+pushed close to the same caption. Why is this desirable for retrieval but potentially
+harmful for faithful image reconstruction?
+(b) Compare the information preserved by:
+i. a VQ-VAE code index map i ∈ {1, . . . , K}4×4 ,
+ii. a CLIP/SigLIP embedding vector u ∈ Rm .
+
+8
+
+Which one is more likely to preserve spatial layout? Which one is more likely to discard
+low-level texture? Justify your answer from the training objective, not from intuition
+alone.
+(c) Suppose you feed a CLIP image embedding into a language model by projecting it once
+into the LM hidden space and appending it as a single conditioning vector. Compare
+this to feeding a sequence of 16 discrete visual tokens obtained from a VQ-VAE. Which
+representation gives the LM finer-grained control over where information appears in
+the token stream, and why does that matter for generation?
+(d) A student claims: “CLIP is better than VQ-VAE for multimodal language models
+because CLIP embeddings are more semantic.” Give a careful response. Under what
+downstream goals is this statement reasonable, and under what goals is it incomplete
+or incorrect?
+(e) Analyse. In the toy multimodal LM of this assignment, we want the model not
+only to answer questions about images, but also to generate image token sequences
+autoregressively. Explain why CLIP/SigLIP alone are insufficient for this purpose.
+Your answer should address:
+• absence of a discrete image vocabulary,
+• lack of an invertible or approximately invertible decoder,
+• mismatch between global embedding alignment and token-level autoregressive prediction.
+(f) Finally, relate this discussion back to catastrophic forgetting. Suppose a frozen CLIP
+encoder is used only to produce image embeddings for the LM, and only a small
+projection layer is trained to map those embeddings into the LM hidden space. Would
+this likely reduce forgetting relative to training a new visual token embedding table
+jointly inside the LM? Explain the mechanism carefully, and state what capability
+would be lost in exchange.
+
+3.2
+
+Problem 1: VLM Objectives and Connector Design
+
+The two interface alignment losses used in Part A are:
+X
+LIT (θ) = −
+log Pθ (yt | y<t , xT , V ),
+
+(1a)
+
+t
+
+LITT (θ) = −
+
+X
+
+log Pθ (yt | y<t , V ).
+
+(1b)
+
+t
+
+Problem 1.1 (Interface alignment losses & multi-phase training)
+(a) Explain which loss is more appropriate for (i) image captioning, (ii) VQA, and
+(iii) open-ended image-grounded dialogue. Justify each by identifying the missing
+conditioning signal and its consequence.
+(b) In Phase 1, LITT is used with the LM backbone frozen. Explain in what sense Phase 1
+trains the connector to “speak the LM’s language” but does not teach the model to
+
+9
+
+answer questions.
+(c) The VQA loss is computed only over answer tokens (all prefix positions receive label
+−100). Show that computing the loss over visual token positions would be meaningless.
+What ground-truth label would you assign?
+(d) ΘV (CLIP) is frozen in Phases 1–2. If it were trained from random initialisation during
+Phase 1, describe two failure modes.
+Problem 1.2 (Connector architectures)
+MLP projector. V = GELU(ZW1 + b1 )W2 + b2 , W1 ∈ R768×960 , W2 ∈ R960×960 .
+(a) Count trainable parameters (include biases). Express as a percentage of SmolLM2’s
+360 M.
+(b) The MLP has no cross-token interaction. Explain why this limits spatial reasoning.
+√
+Q-Former. M learnable queries attend to CLIP patches: V = softmax(QKv⊤ / dLM )Vv .
+(c) Show the LM receives exactly M tokens regardless of image resolution.
+(d) Explain why very small M risks discarding spatial information. Propose one criterion
+that forces diverse attention.
+(e) Describe the query collapse failure mode and one strategy to prevent it.
+(0)
+
+Gated cross-attention. z̃l = zl + tanh(αl ) CrossAttn(zl , ZWV ), with αl
+
+= 0.
+
+(f) Count additional parameters per LM layer (dLM = 960, nheads = 15, dhead = 64) and
+for all 24 layers.
+(g) This assignment wraps only the first LM layer. Explain what this single-layer version
+can and cannot learn vs. the full Flamingo architecture.
+Problem 1.3 (Connector comparison — fill in table)
+One precise sentence or formula per cell.
+
+3.3
+
+Problem 2: VQ-VAE Theory
+
+The VQ-VAE training objective is:
+LVQ = ∥x − Dψ (zq )∥22 + ∥sg(ze ) − zq ∥22 +β ∥ze − sg(zq )∥22 ,
+{z
+}
+|
+{z
+}
+|
+{z
+} |
+reconstruction
+
+codebook
+
+where sg(·) is the stop-gradient operator.
+
+10
+
+commitment
+
+(2)
+
+MLP projector
+
+Q-Former
+
+Gated cross-attn
+
+Visual tokens to
+LM
+Cross-token interaction
+Trainable params
+Resolutionagnostic?
+LM architecture
+modified?
+Main failure mode
+
+Problem 2.1 (Straight-through estimator)
+(a) Explain why ∇ze ∥ze − sg(zq )∥22 is well-defined but ∇ze ∥x − Dψ (zq )∥22 is not (before any
+approximation).
+(b) The straight-through estimator passes the decoder gradient through the quantiser as
+if zq = ze . State the assumption and when it is a good approximation.
+(c) Show that ∇ϕ LVQ receives contributions from the commitment term and the straightthrough reconstruction gradient only. Why does ∥sg(ze ) − zq ∥22 contribute nothing to
+∇ϕ ?
+Problem 2.2 (Codebook perplexity and collapse)
+P
+Define Perp(C) = exp(− k pk log pk ), where pk is the usage fraction of entry k.
+(a) Show Perp is maximised at K (uniform) and minimised at 1 (collapse).
+(b) Explain mechanistically why very small β promotes collapse and very large β degrades
+reconstruction. Identify the gradient terms in (2).
+P
+(i)
+(c) EMA updates: Nk ← γNk +(1−γ)nk ; mk ← γmk +(1−γ) i:k∗ =k ze ; ek ← mk /Nk .
+i
+Explain why EMA improves codebook utilisation early in training.
+
+3.4
+
+Problem 3: Unified Vocabulary and Token Sequences (Part B)
+
+Problem 3.1 (Vocabulary expansion)
+After adding K = 256 visual tokens and <image>/</image>, the unified vocabulary has size
+V = 49 410.
+(a) Codebook vectors ek ∈ R64 are projected to R960 via a linear projection P . Show
+
+11
+
+that if P is randomly initialised while the LM’s embeddings are well-trained, the VQA
+gradient initially focuses on P and LoRA. Why is this desirable?
+(b) Compare two embedding strategies: (i) in-place resize: extend wte to size V and make
+all rows trainable; (ii) overlay embedding: keep wte frozen, use nn.Embedding(258,
+960) with a forward hook. Compare along: gradient flow to existing text embeddings,
+memory cost, implementation complexity.
+(c) <image> and </image> are initialised from the mean of existing text embeddings.
+Explain why this beats random init.
+
+3.5
+
+Problem 4: Catastrophic Forgetting and Mixed Objectives
+
+This problem applies to both parts. The mixed objectives are:
+Part A:
+
+Lmixed = LVQA + λLLM ,
+
+(3a)
+
+Part B:
+
+Lmixed = LVQA + λLLM + γimg LIMG .
+
+(3b)
+
+Problem 4.1 (LoRA and forgetting — shared theory)
+LoRA: ∆W = BA, B ∈ R960×r , A ∈ Rr×960 .
+(a) Show rank(∆W ) ≤ r. For r = 16, compute the fraction of the 960 × 960 weight space
+affected.
+(b) For λ = 0: upper-bound on R as training progresses. For λ → ∞: why does VQA
+accuracy collapse?
+(c) Alpaca batches must never contain visual tokens/embeddings. Describe the specific
+corruption mechanism if visual tokens leak into LLM .
+Problem 4.2 (Logit masking and modality routing — Part B)
+At inference, the LM produces logits over all V = 49 410 tokens.
+(a) For VQA (text output): write the masked logit vector ℓ̃ as a function of raw logits ℓ
+and mask m ∈ {0, 1}V . Show that after softmax, masked tokens get zero probability.
+What numerical value achieves this?
+(b) For image generation: propose the complementary mask. Why is it necessary?
+(c) Without masking, what fraction of probability mass goes to visual tokens initially?
+
+3.6
+
+Problem 5: Modality Gap and Cross-Architecture Comparison
+
+From lecture notes, InfoNCE decomposes as:
+P
+Lc (θ) = −E[sii ] + E[log j esij ] .
+| {z } |
+{z
+}
+alignment
+
+12
+
+uniformity
+
+(4)
+
+Problem 5.1 (Gap geometry and mitigation)
+(a) Show the uniformity gradient for vi points away from all embeddings but does not
+specifically push vi toward text. Why does this promote a persistent modality gap?
+(b) Define MG = ∥v̄ − t̄∥2 (mean normalised embeddings). Show 0 ≤ MG ≤ 2 and identify
+the geometric extremes.
+(c) Explain the cone effect: why does contrastive training push each modality into a narrow
+cone?
+(d) Three mitigation strategies: (I) norm alignment Lnorm ; (II) uniformity regulariser Lunif ;
+(III) partial ViT unfreezing. For each: which component it modifies, one failure mode,
+and one scenario where it outperforms the others.
+
+13
+
+Coding Section — Part A: Continuous
+Connector VLMs
+4
+
+Coding Tasks — Part A
+
+4.1
+
+Dataset: CIFAR-10 Subset
+Dataset
+
+Size (baseline)
+
+Purpose
+
+CIFAR-10 images (train)
+
+10 000 (1 000/class)
+
+Phases 1–3
+
+CIFAR-10 images (test)
+
+2 000 (200/class)
+
+Held-out evaluation
+
+Synthetic captions
+
+10 000 templates
+
+Phase 1 connector init
+
+Synthetic VQA (train)
+
+50 000 (5 templates × 10 000)
+
+Phase 2/3
+
+Synthetic VQA (val)
+
+10 000 (5 templates × 2 000)
+
+Evaluation
+
+Alpaca (replay)
+
+1 000 examples
+
+Language replay
+
+Part A Baseline — Compute-Calibrated for Kaggle T4
+• Vision encoder: clip-vit-base-patch32, frozen, fp32 (≈0.35 GB). Extract 49
+patches; discard CLS.
+• LM: SmolLM2-360M, float16 (≈0.72 GB) + GradScaler.
+• Connector (MLP): Linear(768,960) – GELU – Linear(960,960). Kaiming init. Verify
+rnorm ∈ [0.5, 2.0] before Phase 2.
+• LoRA: r = 16, α = 32, targets q proj, k proj, v proj, o proj.
+• Phase 1: connector only, Adam 3×10−4 , batch 32, 1 epoch. ≈5 min.
+• Phase 2: connector + LoRA + replay (λ = 0.2), Adam 5×10−4 , grad accum ×4,
+OneCycleLR (10% warmup). ≈15 min.
+• Phase 3: connector + LoRA, Adam 2×10−4 , 1 epoch. ≈5 min.
+• Eval: every 300 steps; 200 VQA pairs, 100 Alpaca for PPL.
+Total: ≈25–30 min on T4 (<2.5 GB peak VRAM).
+
+4.2
+
+Task A-C0: Data Pipeline and Model Loading
+
+Task A-C0: Setup
+A-C0.1 CIFAR-10 Preprocessing
+1. Load torchvision.datasets.CIFAR10. Stratified subsets (seed 42): 1 000/class train,
+200/class test. Preprocess with CLIPImageProcessor (resizes 32 → 224, CLIP normalisation). Cache tensors.
+2. Verify CLIP normalisation mean/std differs from ImageNet defaults.
+
+14
+
+A-C0.2 Caption and VQA Datasets
+3. 10 000 captions (six rotating templates per class).
+4. Apply all five VQA templates to every image:
+Question
+
+Answer
+
+Skill
+
+“What object is shown?”
+“Is there a {class}?”
+“Vehicle or living thing?”
+“Can it fly?”
+“Is this an animal?”
+
+class name
+yes/no
+vehicle / living
+yes/no
+yes/no
+
+recognition
+binary
+abstraction
+attribute
+category
+
+50 000 train / 10 000 val pairs.
+A-C0.3 Model Loading
+5. Load CLIP (.requires grad (False)); confirm 50 tokens output.
+6. Load SmolLM2 in float16; confirm dLM = 960, vocab 49 152.
+7. Load 1 000 Alpaca examples. Compute PPL0 .
+Common Pitfalls & Debugging
+• Always use CLIPImageProcessor — raw 32 × 32 images give silently wrong features.
+• Discard CLS — use last hidden state[:,1:,:] (49 spatial patches).
+• Never inject visual tokens into Alpaca batches.
+
+4.3
+
+Task A-C1: Phase 1 — Connector Initialisation
+
+Task A-C1: Phase 1
+Train only ΘC on caption pairs; CLIP and LM frozen.
+1. Sequence: [BOS emb, V1:49 , caption embs] via inputs embeds. Labels: [−100] × (1 +
+49) + caption IDs.
+2. Verify ≈1.66 M trainable params. Train 1 epoch, batch 32, Adam 3×10−4 .
+3. Measure rnorm . Rescale if outside [0.3, 3].
+4. Generate 5 captions from held-out images (greedy, visual tokens only).
+5. Save weights/connector phaseA1.pt.
+
+15
+
+4.4
+
+Task A-C2: Phase 2 — SFT with Language Replay
+
+Task A-C2: Phase 2
+Connector + LoRA + Alpaca replay.
+1. Apply LoRA (r = 16, α = 32). Load Phase 1 connector. Trainable < 1%.
+2. VQA: [BOS emb, V, q embs, a embs, EOS]. Labels: −100 prefix; answer + EOS
+receive gradient.
+3. Lmixed = LVQA + 0.2 LLM . GradScaler, grad accum ×4, OneCycleLR (10% warmup).
+4. Run λ ablation (Table 1).
+
+Table 1: Part A: replay weight λ ablation.
+
+4.5
+
+Condition
+
+λ
+
+VQA acc. (%)
+
+R
+
+No replay
+Weak
+Baseline
+Strong
+
+0.00
+0.05
+0.20
+0.50
+
+—
+—
+—
+—
+
+—
+—
+—
+—
+
+Task A-C3: Phase 3 — VQA Alignment
+
+Task A-C3: Phase 3
+Load Phase 2 checkpoint. 1 epoch on 10 000 VQA pairs, no replay (λ = 0), lr 2×10−4 .
+Compare accuracy vs. Phase 2. Does R increase? Optionally: unfreeze last 4 CLIP ViT
+blocks (lr 10−5 ); compare MG. Save weights/connector phaseA3.pt.
+
+4.6
+
+Task A-C4: Evaluation
+
+Task A-C4: VQA Evaluation
+1. Exact-match accuracy on 10 000-pair val set: overall, per template, per class.
+2. Baselines: (i) text-only (no visual tokens), (ii) majority vote.
+3. Plot VQA accuracy and R across Phases 0–3.
+4. 6 qualitative examples (2 correct-easy, 2 correct-hard, 2 failures) with top-5 logits.
+5. Report peak VRAM, training time, trainable params per phase.
+
+16
+
+4.7
+
+Task A-C5: Modality Gap Analysis
+
+Task A-C5: Modality Gap
+Fix 200 test images and 200 test questions (seed 42). Reuse across all checkpoints.
+1. After each phase: compute MG and within/cross-modal cosine similarities.
+2. Plot MG across phases. Which phase has the largest effect?
+3. UMAP visualisation after each phase.
+4. Re-run Phase 2 with Lnorm = (E∥Vi ∥2 − E∥Tj ∥2 )2 (weight 10−2 ). Does it help?
+
+4.8
+
+Task A-C6: Ablations (choose ≥ 1)
+
+Task A-C6: Ablations
+1. Dataset scale: N ∈ {1k, 5k, 10k, 50k}.
+2. CLS vs. patches vs. mean-pooled.
+3. LoRA rank sweep: r ∈ {2, 4, 16, 32}.
+4. CLIP vs. DINOv2 (facebook/dinov2-small, dv = 384, 256 patches).
+
+17
+
+Coding Section — Part B: Discrete VQ-VAE
+5
+
+Coding Tasks — Part B
+
+5.1
+
+Dataset: Synthetic Images
+Dataset
+
+Size
+
+Purpose
+
+Synthetic images (train)
+
+4 800 (16 × 16, 6 classes)
+
+VQ-VAE + image gen
+
+Synthetic images (val)
+
+1 200
+
+VQ-VAE eval
+
+VQA pairs (train)
+
+19 200 (4 templates × 4 800)
+
+LM fine-tuning
+
+VQA pairs (val)
+
+4 800
+
+LM eval
+
+Image-gen pairs (train)
+
+4 800
+
+Image-generation loss
+
+Alpaca (replay)
+
+1 000
+
+Language replay
+
+Part B Baseline — Compute-Calibrated for Kaggle T4
+• VQ-VAE: Conv encoder (3 → 32 → 64, 4× downsampling), K = 256, d = 64, β = 0.25,
+dead-code restart threshold 2. 80 epochs, batch 64, Adam 3×10−4 . ≈5 min.
+• LM: SmolLM2-360M, float16 + GradScaler.
+• LoRA: r = 16, α = 32, targets q/k/v/o proj.
+• Embedding: overlay nn.Embedding(258, 960) with hook. LR: overlay 5×10−5 ;
+LoRA + projection 5×10−4 .
+• Mixed training: λ = 0.2, γimg = 0.5; sequential fwd/bwd per task; OneCycleLR (10%
+warmup); 3 epochs, batch 16, grad accum ×4. ≈90–100 min.
+• Eval: every 300 steps; 200 VQA, 100 Alpaca PPL.
+Total: ≈100 min on T4 (<3.5 GB peak VRAM).
+Practical Nuance (from reference implementation)
+Training data bottleneck.
+Set steps per epoch = max(len(vqa loader),
+len(imggen loader), len(text loader)) so the epoch length is determined by the
+largest dataset (VQA has 1 200 batches). Using min caps at the text loader (62 batches),
+causing the model to see only ≈26% of VQA data. All loaders use infinite loader (cycle)
+so smaller datasets wrap around.
+Gradient
+checkpointing
+vs.
+KV-cache.
+Enable
+model.gradient checkpointing enable() during training to reduce activation memory. During evaluation, disable it before calling generate answer with use cache=True
+(KV-cache), then re-enable before resuming training. The two are incompatible.
+Reference model on CPU. Load the frozen reference model πref on CPU (saves ≈0.72 GB).
+Move to GPU only during R evaluation; move back to CPU immediately after.
+
+18
+
+5.2
+
+Task B-C0: Dataset Generation and Model Loading
+
+Task B-C0: Setup
+B-C0.1 Synthetic Image Generation
+1. Implement generate dataset(n per class=1000, seed=42) for six classes: spiral,
+triangle, circle, cross, checkerboard, gradient. 80/20 stratified split.
+2. Verify: 6 × 5 grid. Confirm classes are visually distinguishable.
+B-C0.2 VQA and Image-Gen Datasets
+3. Four VQA templates:
+Question
+
+Answer
+
+Skill
+
+“What shape is in this image?”
+“Is there a {class}?”
+“Geometric or non-geometric?”
+
+class name
+yes/no
+geometric/nongeometric
+0/1/3/4/infinite
+
+recognition
+binary
+abstraction
+
+“How many axes of symmetry?”
+
+numerical
+
+19 200 train / 4 800 val pairs.
+4. Image-gen: one prompt per image, three cycling templates.
+B-C0.3 Model and Alpaca
+5. Load SmolLM2 in float16; confirm vocab 49 152, dLM = 960.
+6. 1 000 Alpaca examples. Compute PPL0 . Expected: ≈8.
+Common Pitfalls & Debugging
+• Left-padding. SmolLM2 is decoder-only; right-padding corrupts batched generation.
+Set tokenizer.padding side = "left".
+• Modality-pure batches. Never shuffle Alpaca into VQA/image-gen batches.
+
+5.3
+
+Task B-C1: VQ-VAE Training and Codebook Analysis
+
+Task B-C1: Train and Analyse VQ-VAE
+B-C1.1 Architecture
+1. Implement VQ-VAE:
+• Encoder: Conv(3→32, k=4, s=2) → Conv(32→64, k=4, s=2) → Conv(64→64,
+k=3, s=1), each with GroupNorm + ReLU. ze ∈ R4×4×64 .
+
+19
+
+• Vector quantiser: C ∈ R256×64 , init Uniform(−1/K, 1/K). Straight-through estimator. Support both gradient-descent and EMA (γ = 0.99). Dead-code restart
+(threshold 2).
+• Decoder:
+ConvTranspose2d(64→64)
+Conv2d(32→3) + Sigmoid.
+
+→
+
+ConvTranspose2d(64→32)
+
+→
+
+Verify ≈187 K params.
+B-C1.2 Training
+2. Train with loss (2). 80 epochs, batch 64, Adam 3×10−4 . Log: recon MSE, codebook
+loss, perplexity, dead codes.
+3. Run four ablations (Table 2).
+B-C1.3 Codebook Analysis
+4. Quantisation gap ∆ = Lpost − Lpre .
+5. Usage histogram + 256 × 256 cosine similarity heatmap.
+6. Token map visualisation: 6 val images (one per class) with 4 × 4 index map alongside
+original and reconstruction.
+7. Save best checkpoint as weights/vqvae best.pt (frozen hereafter).
+
+Table 2: VQ-VAE ablation.
+Config
+
+K
+
+β
+
+Codebook update
+
+Baseline
+A
+B
+
+256
+128
+256
+
+0.25
+0.25
+1.00
+
+Gradient
+Gradient
+Gradient
+
+C
+
+256
+
+0.25
+
+EMA (γ = 0.99)
+
+Notes
+—
+Smaller codebook
+Stronger commitment
+EMA vs. gradient
+
+Implementation Guidance
+Expected results: recon MSE ≲ 0.01, perplexity ≥ 200, 0 dead codes after 80 epochs with
+EMA + dead-code restart. ∆ ≈ 1.8.
+Data-driven codebook init (optional): initialise codebook from K-means on a batch of
+encoder outputs instead of uniform random. This can speed up convergence.
+Stop-gradient placement is critical. Codebook loss: sg(ze ) as target. Commitment loss:
+sg(zq ) as target.
+EMA updates are not from loss.backward(). Run the EMA formula manually after
+backward. Do not include codebook parameters in the optimiser when using EMA.
+
+20
+
+5.4
+
+Task B-C2: Vocabulary Expansion
+
+Task B-C2: Unified Vocabulary
+B-C2.1 Vocabulary Expansion
+1. Add <image>, </image>, and K = 256 visual tokens. Call resize token embeddings
+before get peft model.
+Hint
+Use the overlay embedding strategy:
+keep wte frozen, create
+nn.Embedding(258, 960) with a forward hook that swaps in new rows for token
+IDs ≥ Vtxt . This avoids 47 M extra trainable parameters.
+2. Initialise <image>/</image> rows from the mean of text embeddings. Initialise the
+K = 256 visual token rows to zero (they will be populated by the projector before
+being made trainable).
+3. Verify norm ratio (visual/text) ∈ [0.2, 5] after projector warm-up. Rescale if needed.
+B-C2.2 Two-Phase Projector Warm-Up
+4. Phase 1 – Projector pre-training. Keep the overlay embedding entirely frozen
+except the two special-token rows (<image>, </image>). Train only P : R64 → R960
+(Kaiming init) for a few epochs or until ∥P (ck )∥ converges relative to text-embedding
+norms. This forces P to learn a geometrically sound mapping from codebook space to
+embedding space before any token embedding is exposed to gradient noise.
+5. Phase 2 – Embedding transplant. After Phase 1, run every codebook vector ck
+through the trained P and write the result into the corresponding visual-token row of
+the overlay embedding:
+ek ← P (ck ),
+
+k = 0, . . . , K−1.
+
+Mark those K rows as requires grad=True and discard P (remove it from the optimiser and from the computational graph). From this point the visual embeddings are
+free parameters initialised at a meaningful geometry rather than at random or zero.
+6. Re-verify the norm ratio after transplant; rescale if outside [0.2, 5].
+
+5.5
+
+Task B-C3: Tokenisation Pipeline
+
+Task B-C3: Tokenisation Pipeline
+B-C3 Tokenisation Pipeline
+1. encode multimodal: [BOS, <image>, v1:16 , </image>, question, answer, EOS]. Labels:
+−100 prefix; answer + EOS receive gradient.
+2. encode imagegen: [BOS, prompt, <image>, v1:16 , </image>, EOS]. Labels: −100 prefix
+
+21
+
+up to <image>; visual tokens + </image> receive gradient.
+3. Pre-encode all samples at dataset init; move VQ-VAE to CPU before LM training.
+4. Verify: print token-type sequences for 3 images in both modes.
+Common Pitfalls & Debugging
+• Index offset: visual token ID = codebook index + Vtxt + 2.
+• Resize before LoRA: resize token embeddings after get peft model silently corrupts adapter shapes.
+• Phase boundary: do not let LoRA gradients flow during Phase 1; apply
+get peft model only after the embedding transplant (Phase 2) is complete.
+
+5.6
+
+Task B-C4: Mixed-Objective Fine-Tuning
+
+Task B-C4: LoRA Fine-Tuning with Language Replay
+B-C4.1 Setup
+1. Apply LoRA. Trainable: LoRA + overlay embedding (visual + special rows) + projection P during Phase 1 only. Confirm < 1% total parameters in Phase 2.
+2. LR groups: LoRA at 5×10−4 ; visual embedding rows at 5×10−5 .
+3. Reference model πref frozen on CPU.
+B-C4.2 Training Loop
+4. Sequential forward/backward per task (VQA, then image-gen, then text), each with
+scaler.scale(...).backward(). Weights: λ = 0.2, γimg = 0.5. Single scaler.step
++ update after all three.
+5. Grad accum ×4, OneCycleLR (10% warmup). Train 3 epochs.
+6. Log every 25 steps. Run λ/γ ablation (Table 3).
+B-C4.3 Break-the-Protection
+7. LoRA r = 64, λ = 0, γimg = 0. Report R and VQA accuracy.
+
+Table 3: Part B mixed training ablation.
+Condition
+
+λ
+
+γimg
+
+VQA (%)
+
+R
+
+No replay
+Weak
+Baseline
+Strong
+
+0.00
+0.05
+0.20
+0.50
+
+0.00
+0.05
+0.50
+0.50
+
+—
+—
+—
+—
+
+—
+—
+—
+—
+
+22
+
+Common Pitfalls & Debugging
+• Sequential vs. joint forward: sequential uses 1/3 peak activation memory.
+• VQ-VAE on CPU: pre-encode all samples at dataset init, then free VQ-VAE from
+GPU.
+• Initial loss sanity: step-0 LVQA and LIMG should be ≈ log(49 410) ≈ 10.8 nats.
+• NaN handling: early NaN steps are expected with fp16. The GradScaler handles
+them automatically (scale halves). Expect ∼30–40 NaN steps in the first epoch; this
+is normal.
+
+5.7
+
+Task B-C5: Evaluation
+
+Task B-C5: VQA, Image Generation, and Error Analysis
+B-C5.1 VQA Accuracy
+1. Evaluate on 500 val pairs (or full 4 800 if time permits). Report: overall, per template,
+per class. Use KV-cache for fast generation.
+2. Compare to text-only and majority-class baselines.
+3. Confusion matrix for “What shape?” template.
+B-C5.2 Image Generation
+4. Generate 12 images (2 per class) autoregressively with image logit mask. Decode via
+frozen VQ-VAE decoder. Comment on fidelity.
+B-C5.3 Logit Masking and Decoding
+5. Show before/after logit histograms for one example.
+6. Temperature sweep: T ∈ {0.5, 1.0, 1.5}.
+7. Identify one spatial coherence issue from 1D raster prediction on a 2D grid.
+B-C5.4 Qualitative Error Analysis
+8. 6 examples: 2 correct VQA, 2 failures, 2 generated images. Show top-5 logits. Link
+failures to codebook properties.
+
+23
+
+5.8
+
+Task B-C6: Focused Ablations (choose ≥ 1)
+
+Task B-C6: Ablations
+1. Codebook size: K ∈ {64, 128, 256, 512}; report ∆ and VQA accuracy.
+2. Frozen vs. unfrozen VQ-VAE encoder.
+3. LoRA rank sweep: r ∈ {4, 8, 32, 64}, λ = γ = 0.
+4. Loss weight sweep: vary λ and γimg jointly.
+5. No-projector baseline: skip Phase 1 entirely; initialise all K visual-token rows randomly (Kaiming) and make them trainable from the start. Compare final VQA accuracy and R against the two-phase baseline to quantify the benefit of projector warm-up.
+6. Frozen-embedding baseline: keep the K visual-token rows frozen throughout all of
+Phase 2 training (special-token rows remain trainable). At the very end, perform a
+single projector transplant pass (ek ← P (ck )) with no subsequent fine-tuning. Compare
+against the two-phase baseline to isolate how much gain comes from letting transplanted
+embeddings adapt vs. the projector geometry alone.
+
+24
+
+Appendix
+A. Mathematical Reference
+Interface alignment losses. LIT = −
+VQ-VAE.
+
+T
+t log P (yt | y<t , x , V );
+
+P
+
+LITT = −
+
+P
+
+t log P (yt | y<t , V ).
+
+LVQ = ∥x − Dψ (zq )∥2 + ∥sg(ze ) − zq ∥2 + β∥ze − sg(zq )∥2 .
+
+Codebook perplexity. Perp(C) = exp(−
+
+P
+
+k pk log pk ).
+
+Mixed objectives. Part A: L = LVQA + λLLM . Part B: L = LVQA + λLLM + γimg LIMG .
+Forgetting ratio. R = PPL(πθ )/PPL0 .
+Modality gap. MG = ∥v̄ − t̄∥2 ∈ [0, 2].
+Gated cross-attention. z̃l = zl + tanh(αl ) CrossAttn(zl , ZWV ).
+Quantisation gap. ∆ = Lpost − Lpre ≥ 0.
+
+B. VRAM Budget (float16)
+Component
+
+A Ph.1
+
+A Ph.2/3
+
+B LM stage
+
+CLIP ViT-B/32 (frozen, fp32)
+
+0.35
+
+0.35
+
+—
+
+VQ-VAE (frozen, CPU)
+
+—
+
+—
+
+<0.01
+
+SmolLM2-360M (float16)
+
+0.72
+
+0.72
+
+0.72
+
+LoRA + optimizer (r = 16)
+
+—
+
+0.08
+
+0.08
+
+Overlay embed (258 rows)
+
+—
+
+<0.01
+
+<0.01
+
+πref (CPU)
+
+—
+
+—
+
+0.72 (CPU)
+
+Activations + KV cache
+
+0.5
+
+1.0
+
+1.5
+
+Total GPU (GB)
+
+≈1.6
+
+≈2.2
+
+≈2.4
+
+If OOM: reduce batch to 8 + accum ×8; or use bitsandbytes 8-bit quantisation.
+
+25
+
+C. Debugging Checklist
+Symptom
+
+Cause and fix
+
+VQA loss ≈ 0 at step 0
+
+Labels over visual/question tokens. Only answer positions
+get label ̸= −100.
+
+VQ-VAE perplexity < 30
+
+Codebook collapse. Increase β, switch to EMA, or enable
+dead-code restart.
+
+Phase 1 captions all EOS
+
+Connector norms 10× text norm. Scale by 0.1 or add Lnorm .
+
+R > 1.3 with λ > 0
+
+Alpaca batches contain
+is vision batch guard.
+
+MG unchanged
+phases
+
+across
+
+visual
+
+tokens.
+
+Add
+
+Different 200 examples per measurement. Fix indices at
+start (seed 42).
+
+CLIP receiving gradients
+
+.requires grad (False) not called after loading.
+
+Visual IDs in text answers
+
+Logit mask not applied before sampling.
+
+Embedding norms diverge
+
+Overlay LR too high. Use 5×10−5 .
+
+resize token embeddings Must resize before get peft model.
+error
+NaN loss with float16
+no kernel image
+P100
+
+Use torch.amp.autocast + GradScaler.
+on
+
+Reinstall PyTorch for CUDA 11.8 (cu118 wheels); restart
+runtime.
+
+26
+
+

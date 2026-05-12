@@ -1,0 +1,21 @@
+Using existing VQ-VAE ablation table
+Using existing weights/vqvae_best.pt
+Using existing weights/partB_lm_baseline.pt
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+`torch_dtype` is deprecated! Use `dtype` instead!
+Loading weights:   0%|          | 0/290 [00:00<?, ?it/s]Loading weights: 100%|██████████| 290/290 [00:00<00:00, 3617.49it/s]
+Sanity: LM hidden size should be 960 -> 960
+Sanity: LM vocab size should be 49152 before adding tokens -> 49152
+Added visual tokens: 258; final vocab should be 49410 -> 49410
+The new embeddings will be initialized from a multivariate normal distribution that has old embeddings' mean and covariance. As described in this article: https://nlp.stanford.edu/~johnhew/vocab-expansion.html. To disable this, use `mean_resizing=False`
+Sanity: VQ-VAE latent should be [B, 64, 4, 4] -> (1, 64, 4, 4)
+Sanity: VQ-VAE token map should be [B, 4, 4] -> (1, 4, 4)
+Part B VQA metrics written. Accuracy=1.0000
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+`torch_dtype` is deprecated! Use `dtype` instead!
+Loading weights:   0%|          | 0/290 [00:00<?, ?it/s]Loading weights:  72%|███████▏  | 210/290 [00:00<00:00, 2098.86it/s]Loading weights: 100%|██████████| 290/290 [00:00<00:00, 1980.49it/s]
+Sanity: LM hidden size should be 960 -> 960
+Sanity: LM vocab size should be 49152 before adding tokens -> 49152
+Added visual tokens: 258; final vocab should be 49410 -> 49410
+The new embeddings will be initialized from a multivariate normal distribution that has old embeddings' mean and covariance. As described in this article: https://nlp.stanford.edu/~johnhew/vocab-expansion.html. To disable this, use `mean_resizing=False`
+Saved LM-generated image grids, logit-mask histogram, temperature sweep, and qualitative notes.

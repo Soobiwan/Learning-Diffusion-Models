@@ -1,0 +1,13 @@
+type=correct
+idx=0
+Q=What shape is in this image?
+GT=cross
+PRED=cross
+TOP5=[('cross', 21.328125), ('touch', 14.015625), ('circle', 13.4765625), ('tri', 12.7734375), ('checker', 12.625)]
+
+type=correct
+idx=1
+Q=Is there a cross?
+GT=yes
+PRED=yes
+TOP5=[('yes', 27.796875), ('Yes', 19.84375), ('no', 18.109375), ('ye', 16.6875), (' yes', 15.4765625)]

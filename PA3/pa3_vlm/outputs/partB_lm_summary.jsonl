@@ -1,0 +1,4 @@
+{"checkpoint": "weights/partB_lm.pt", "lambda": 0.2, "gamma_img": 0.5, "lora_r": 16, "ppl0": 5.029735846694651, "ppl": 4.002982368680142, "R": 0.7958633396842795, "train_seconds": 7409.521982908249, "peak_vram_gb": 2.180860996246338}
+{"checkpoint": "weights/partB_lm.pt", "lambda": 0.0, "gamma_img": 0.0, "lora_r": 16, "ppl0": 5.029735846694651, "ppl": 40.09309209231424, "R": 7.971212269260994, "train_seconds": 7273.636465549469, "peak_vram_gb": 2.30545711517334}
+{"checkpoint": "weights/partB_lm.pt", "lambda": 0.05, "gamma_img": 0.05, "lora_r": 16, "ppl0": 5.029735846694651, "ppl": 4.3738007453987615, "R": 0.8695885586661684, "train_seconds": 7411.736816644669, "peak_vram_gb": 2.180860996246338}
+{"checkpoint": "weights/partB_lm.pt", "lambda": 0.2, "gamma_img": 0.5, "lora_r": 16, "ppl0": 4.648048818621566, "ppl": 4.174878026274523, "R": 0.8982001242217228, "train_seconds": 3137.879236459732, "peak_vram_gb": 6.465306758880615}
